@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ShieldCheck, Truck, Clock, ArrowRight, Package } from 'lucide-react';
 
+// Struktur data produk agar aman dari eror TypeScript
 interface Product {
   id: number;
   nama: string;
@@ -21,7 +22,7 @@ const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: { staggerChildren: 0.1 } // Kartu muncul bergantian satu per satu
+    transition: { staggerChildren: 0.1 } // Kartu produk muncul bergantian secara estetis
   }
 };
 
@@ -99,7 +100,7 @@ export default function HomePage() {
         </motion.div>
       </header>
 
-      {/* Fitur Keunggulan Toko (Value Proposition) */}
+      {/* Fitur Keunggulan Toko */}
       <section className="max-w-6xl mx-auto px-4 -mt-8 relative z-20">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-white p-5 rounded-xl shadow-sm border flex items-center gap-4">
@@ -126,10 +127,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Konten Utama (Daftar Produk) */}
+      {/* Daftar Produk */}
       <main className="max-w-6xl mx-auto px-4 py-16">
         <div className="flex items-center gap-2 mb-8">
-          <Package className="w-6 'h-6' text-orange-500" />
+          <Package className="w-6 h-6 text-orange-500" />
           <h2 className="text-2xl font-bold text-gray-800">Semua Koleksi Produk</h2>
         </div>
 
@@ -148,7 +149,7 @@ export default function HomePage() {
             <p className="text-sm text-gray-400 mt-1">Silakan tambah produk melalui Dashboard Admin.</p>
           </motion.div>
         ) : (
-          /* Grid Kartu Produk Beranimasi */
+          /* Grid Utama Menggunakan Framer Motion */
           <motion.div 
             variants={containerVariants}
             initial="hidden"
@@ -156,13 +157,14 @@ export default function HomePage() {
             className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
           >
             {products.map((product) => (
+              /* Di sini wajib memakai motion.div agar atribut variants tidak merah */
               <motion.div 
                 key={product.id} 
-                variants={itemVariants}
-                whileHover={{ y: -6, transition: { duration: 0.2 } }}
+                variants={itemVariants as any}
+                whileHover={{ y: -6, transition: { duration: 0.2 } }} 
                 className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between group"
               >
-                {/* Area Gambar dengan Efek Zoom */}
+                {/* Gambar Produk */}
                 <div className="relative aspect-square w-full bg-gray-50 overflow-hidden">
                   <img 
                     src={product.gambar1 || '/placeholder.png'} 
@@ -171,7 +173,7 @@ export default function HomePage() {
                   />
                 </div>
 
-                {/* Info Produk */}
+                {/* Info & Tombol Aksi */}
                 <div className="p-4 flex-1 flex flex-col justify-between">
                   <div>
                     <h3 className="text-sm font-semibold text-gray-800 line-clamp-2 mb-1 group-hover:text-orange-600 transition-colors">
@@ -185,7 +187,6 @@ export default function HomePage() {
                     </p>
                   </div>
 
-                  {/* Bagian Tombol dan Status Stok */}
                   <div className="space-y-3">
                     <div className="flex justify-between items-center text-xs">
                       <span className="text-gray-400">Stok Tersedia</span>
