@@ -1,12 +1,6 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
-  typescript: {
-    ignoreBuildErrors: true, // Mengabaikan eror garis merah framer-motion kemarin
-  },
-  eslint: {
-    ignoreDuringBuilds: true, // <-- TAMBAHKAN BARIS INI (Memaksa Vercel abaikan eror eslint/config)
-  },
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  /* config options here */
 };
 
 export default nextConfig;
