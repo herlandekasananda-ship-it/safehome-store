@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldCheck, Truck, Clock, ArrowRight, Package, ChevronLeft, ChevronRight, Store } from 'lucide-react';
+import { ShieldCheck, Truck, Clock, Package, ChevronLeft, ChevronRight, Store } from 'lucide-react';
 
 interface Product {
   id: number;
@@ -70,7 +70,6 @@ function ProductCarousel({ product }: { product: Product }) {
 
       {images.length > 1 && (
         <>
-          {/* Tombol navigasi disesuaikan ukurannya agar mudah di-tap di HP */}
           <button
             onClick={handlePrev}
             className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/90 backdrop-blur-sm p-2 rounded-full shadow-md text-gray-700 hover:bg-orange-500 hover:text-white transition md:opacity-0 md:group-hover/carousel:opacity-100 z-10 touch-manipulation"
@@ -84,7 +83,6 @@ function ProductCarousel({ product }: { product: Product }) {
             <ChevronRight className="w-4 h-4 md:w-5 h-5" />
           </button>
 
-          {/* Posisi dots indikator diturunkan sedikit agar rapi */}
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
             {images.map((_, idx) => (
               <span
@@ -128,9 +126,9 @@ export default function HomePage() {
   return (
     <div className="bg-gradient-to-b from-gray-50 to-gray-100 min-h-screen text-gray-900 selection:bg-orange-500 selection:text-white antialiased">
       
-      {/* 1. NAVBAR RESPONSIF */}
+      {/* 1. NAVBAR RESPONSIF (Tanpa Tombol Admin) */}
       <nav className="bg-white/90 backdrop-blur-md shadow-sm border-b sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 md:px-6 py-3.5 flex justify-between items-center">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 py-3.5 flex justify-center sm:justify-start items-center">
           <Link href="/" className="flex items-center gap-2 active:scale-95 transition-transform">
             <img 
               src="/logo.jpg" 
@@ -146,14 +144,6 @@ export default function HomePage() {
               🏡 SafeHome Store
             </span>
           </Link>
-          
-          <Link 
-            href="/admin/orders" 
-            className="text-xs md:text-sm font-bold text-gray-700 hover:text-orange-600 transition flex items-center gap-1 bg-gray-50 hover:bg-orange-50 px-3 py-1.5 rounded-lg border border-gray-200/60"
-          >
-            <span className="hidden sm:inline">Dashboard</span> Admin 
-            <ArrowRight className="w-3.5 h-3.5 md:w-4 h-4" />
-          </Link>
         </div>
       </nav>
 
@@ -166,7 +156,6 @@ export default function HomePage() {
           transition={{ duration: 0.5 }}
           className="relative z-10 max-w-3xl mx-auto"
         >
-          {/* Ukuran teks dinamis antara HP kecil (text-3xl) dan Desktop (text-6xl) */}
           <h1 className="text-3xl font-black text-gray-900 sm:text-5xl md:text-6xl tracking-tight leading-tight">
             Selamat Datang di <span className="bg-gradient-to-r from-orange-500 to-amber-600 bg-clip-text text-transparent">SafeHome</span>
           </h1>
@@ -176,7 +165,7 @@ export default function HomePage() {
         </motion.div>
       </header>
 
-      {/* 3. GRID FITUR KEUNGGULAN (Responsif: Stack di HP, Row di Desktop) */}
+      {/* 3. GRID FITUR KEUNGGULAN */}
       <section className="max-w-6xl mx-auto px-4 md:px-6 -mt-6 md:-mt-10 relative z-20">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
           <div className="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
@@ -193,7 +182,6 @@ export default function HomePage() {
               <p className="text-[11px] md:text-xs text-gray-400 mt-0.5">Belanja aman barang sampai baru bayar.</p>
             </div>
           </div>
-          {/* Menggunakan sm:col-span-2 agar di tablet sedang posisinya pas seimbang */}
           <div className="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4 sm:col-span-2 md:col-span-1">
             <div className="bg-orange-50 p-2.5 md:p-3 rounded-lg text-orange-600 flex-shrink-0"><Clock className="w-5 h-5 md:w-6 h-6" /></div>
             <div>
@@ -224,10 +212,8 @@ export default function HomePage() {
           >
             <Store className="w-10 h-10 text-gray-300 mx-auto mb-3" />
             <p className="text-gray-500 font-semibold text-base">Belum ada produk yang dijual.</p>
-            <p className="text-xs text-gray-400 mt-1">Silakan tambah produk melalui Dashboard Admin.</p>
           </motion.div>
         ) : (
-          /* GRID PRODUK NYAMAN: 2 Kolom di HP Layar Kecil, 3 Kolom di Tablet, 4 Kolom di Monitor Laptop */
           <motion.div 
             variants={containerVariants}
             initial="hidden"
@@ -238,23 +224,18 @@ export default function HomePage() {
               <motion.div 
                 key={product.id} 
                 variants={itemVariants as any}
-                // Efek hover y-minus hanya diaktifkan di komputer (md ke atas) agar di HP tidak bug/goyang saat di-scroll
                 className="bg-white border border-gray-200/80 rounded-xl overflow-hidden shadow-sm md:hover:shadow-md md:hover:-translate-y-1.5 transition-all duration-200 flex flex-col justify-between group"
               >
-                {/* Carousel Foto */}
                 <ProductCarousel product={product} />
 
-                {/* Konten Keterangan Kartu Produk */}
                 <div className="p-3 md:p-4 flex-1 flex flex-col justify-between">
                   <div>
-                    {/* Menggunakan line-clamp agar tinggi text judul konsisten sama rata */}
                     <h3 className="text-xs md:text-sm font-semibold text-gray-800 line-clamp-2 mb-1 group-hover:text-orange-600 transition-colors">
                       {product.nama}
                     </h3>
                     <p className="text-sm md:text-base font-extrabold text-orange-600 mb-1.5">
                       Rp {Number(product.harga).toLocaleString('id-ID')}
                     </p>
-                    {/* Sembunyikan deskripsi panjang di HP layar kecil agar layout kotak tetap hemat tempat */}
                     <p className="text-[11px] md:text-xs text-gray-400 line-clamp-2 mb-3 hidden sm:block">
                       {product.deskripsi || 'Tidak ada deskripsi produk.'}
                     </p>
