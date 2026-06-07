@@ -1,13 +1,11 @@
-// app/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
-import { ShieldCheck, Truck, Clock, ArrowRight, Package } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ShieldCheck, Truck, Clock, ArrowRight, Package, ChevronLeft, ChevronRight, Store } from 'lucide-react';
 
-// Struktur data produk agar aman dari eror TypeScript
 interface Product {
   id: number;
   nama: string;
@@ -15,22 +13,95 @@ interface Product {
   stock: number;
   deskripsi: string | null;
   gambar1: string | null;
+  gambar2: string | null;
+  gambar3: string | null;
 }
 
-// Konfigurasi Variasi Animasi Framer Motion
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: { staggerChildren: 0.1 } // Kartu produk muncul bergantian secara estetis
+    transition: { staggerChildren: 0.05 }
   }
 };
 
 const itemVariants = {
-  hidden: { y: 20, opacity: 0 },
-  visible: { y: 0, opacity: 1, transition: { type: 'spring', stiffness: 100 } }
+  hidden: { y: 15, opacity: 0 },
+  visible: { y: 0, opacity: 1, transition: { type: 'spring', stiffness: 110 } }
 };
 
+// --- KOMPONEN INTERNAL CAROUSEL GAMBAR (RESPONSIF & TOUCH-FRIENDLY) ---
+function ProductCarousel({ product }: { product: Product }) {
+  const images = [product.gambar1, product.gambar2, product.gambar3].filter(Boolean) as string[];
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  if (images.length === 0) {
+    return (
+      <div className="relative aspect-square w-full bg-gray-50 overflow-hidden">
+        <img src="/placeholder.png" alt={product.nama} className="w-full h-full object-cover" />
+      </div>
+    );
+  }
+
+  const handleNext = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setCurrentIndex((prev) => (prev + 1) % images.length);
+  };
+
+  const handlePrev = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
+  };
+
+  return (
+    <div className="relative aspect-square w-full bg-gray-50 overflow-hidden group/carousel select-none">
+      <AnimatePresence mode="wait">
+        <motion.img
+          key={currentIndex}
+          src={images[currentIndex]}
+          alt={`${product.nama} - ${currentIndex + 1}`}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="w-full h-full object-cover transition-transform duration-500 md:group-hover/carousel:scale-105"
+        />
+      </AnimatePresence>
+
+      {images.length > 1 && (
+        <>
+          {/* Tombol navigasi disesuaikan ukurannya agar mudah di-tap di HP */}
+          <button
+            onClick={handlePrev}
+            className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/90 backdrop-blur-sm p-2 rounded-full shadow-md text-gray-700 hover:bg-orange-500 hover:text-white transition md:opacity-0 md:group-hover/carousel:opacity-100 z-10 touch-manipulation"
+          >
+            <ChevronLeft className="w-4 h-4 md:w-5 h-5" />
+          </button>
+          <button
+            onClick={handleNext}
+            className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/90 backdrop-blur-sm p-2 rounded-full shadow-md text-gray-700 hover:bg-orange-500 hover:text-white transition md:opacity-0 md:group-hover/carousel:opacity-100 z-10 touch-manipulation"
+          >
+            <ChevronRight className="w-4 h-4 md:w-5 h-5" />
+          </button>
+
+          {/* Posisi dots indikator diturunkan sedikit agar rapi */}
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+            {images.map((_, idx) => (
+              <span
+                key={idx}
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  idx === currentIndex ? 'w-4 bg-orange-500' : 'w-1.5 bg-white/70 shadow-sm'
+                }`}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// --- HALAMAN UTAMA ---
 export default function HomePage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,142 +126,144 @@ export default function HomePage() {
   }, []);
 
   return (
-    <div className="bg-gradient-to-b from-gray-50 to-gray-100 min-h-screen text-gray-900 selection:bg-orange-500 selection:text-white">
+    <div className="bg-gradient-to-b from-gray-50 to-gray-100 min-h-screen text-gray-900 selection:bg-orange-500 selection:text-white antialiased">
       
-      {/* Navbar dengan Efek Glassmorphism */}
-      <nav className="bg-white/80 backdrop-blur-md shadow-sm border-b sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
-          <Link href="/" className="flex items-center gap-2 hover:opacity-90 transition active:scale-95">
+      {/* 1. NAVBAR RESPONSIF */}
+      <nav className="bg-white/90 backdrop-blur-md shadow-sm border-b sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 py-3.5 flex justify-between items-center">
+          <Link href="/" className="flex items-center gap-2 active:scale-95 transition-transform">
             <img 
               src="/logo.jpg" 
               alt="SafeHome Store Logo" 
-              className="h-9 w-auto object-contain"
+              className="h-8 md:h-9 w-auto object-contain"
               onError={(e) => {
                 e.currentTarget.style.display = 'none';
                 const textFallback = document.getElementById('brand-text');
                 if (textFallback) textFallback.classList.remove('hidden');
               }}
             />
-            <span id="brand-text" className="text-xl font-bold text-orange-600 tracking-tight hidden">
+            <span id="brand-text" className="text-lg md:text-xl font-bold text-orange-600 tracking-tight hidden">
               🏡 SafeHome Store
             </span>
           </Link>
-          <Link href="/admin" className="text-sm font-semibold text-gray-600 hover:text-orange-600 transition flex items-center gap-1 group">
-            Dashboard Admin 
-            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+          
+          <Link 
+            href="/admin/orders" 
+            className="text-xs md:text-sm font-bold text-gray-700 hover:text-orange-600 transition flex items-center gap-1 bg-gray-50 hover:bg-orange-50 px-3 py-1.5 rounded-lg border border-gray-200/60"
+          >
+            <span className="hidden sm:inline">Dashboard</span> Admin 
+            <ArrowRight className="w-3.5 h-3.5 md:w-4 h-4" />
           </Link>
         </div>
       </nav>
 
-      {/* Hero Section Beranimasi */}
-      <header className="bg-white border-b py-20 px-4 text-center relative overflow-hidden">
+      {/* 2. HERO SECTION RESPONSIF */}
+      <header className="bg-white border-b py-12 md:py-24 px-4 text-center relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(#ea580c_1px,transparent_1px)] [background-size:16px_16px] opacity-5"></div>
         <motion.div 
-          initial={{ opacity: 0, y: -20 }}
+          initial={{ opacity: 0, y: -15 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="relative z-10"
+          transition={{ duration: 0.5 }}
+          className="relative z-10 max-w-3xl mx-auto"
         >
-          <h1 className="text-4xl font-extrabold text-gray-900 sm:text-6xl tracking-tight">
+          {/* Ukuran teks dinamis antara HP kecil (text-3xl) dan Desktop (text-6xl) */}
+          <h1 className="text-3xl font-black text-gray-900 sm:text-5xl md:text-6xl tracking-tight leading-tight">
             Selamat Datang di <span className="bg-gradient-to-r from-orange-500 to-amber-600 bg-clip-text text-transparent">SafeHome</span>
           </h1>
-          <p className="mt-4 text-lg md:text-xl text-gray-500 max-w-xl mx-auto font-medium">
+          <p className="mt-3 md:mt-5 text-sm md:text-lg text-gray-500 max-w-xl mx-auto font-medium px-2">
             Temukan produk terbaik untuk keamanan dan kenyamanan rumah Anda dengan harga bersahabat.
           </p>
         </motion.div>
       </header>
 
-      {/* Fitur Keunggulan Toko */}
-      <section className="max-w-6xl mx-auto px-4 -mt-8 relative z-20">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white p-5 rounded-xl shadow-sm border flex items-center gap-4">
-            <div className="bg-orange-100 p-3 rounded-lg text-orange-600"><ShieldCheck className="w-6 h-6" /></div>
+      {/* 3. GRID FITUR KEUNGGULAN (Responsif: Stack di HP, Row di Desktop) */}
+      <section className="max-w-6xl mx-auto px-4 md:px-6 -mt-6 md:-mt-10 relative z-20">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+          <div className="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
+            <div className="bg-orange-50 p-2.5 md:p-3 rounded-lg text-orange-600 flex-shrink-0"><ShieldCheck className="w-5 h-5 md:w-6 h-6" /></div>
             <div>
-              <h3 className="font-bold text-sm">Produk 100% Original</h3>
-              <p className="text-xs text-gray-400">Jaminan kualitas perlindungan rumah.</p>
+              <h3 className="font-bold text-xs md:text-sm text-gray-800">Produk 100% Original</h3>
+              <p className="text-[11px] md:text-xs text-gray-400 mt-0.5">Jaminan kualitas perlindungan rumah.</p>
             </div>
           </div>
-          <div className="bg-white p-5 rounded-xl shadow-sm border flex items-center gap-4">
-            <div className="bg-orange-100 p-3 rounded-lg text-orange-600"><Truck className="w-6 h-6" /></div>
+          <div className="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
+            <div className="bg-orange-50 p-2.5 md:p-3 rounded-lg text-orange-600 flex-shrink-0"><Truck className="w-5 h-5 md:w-6 h-6" /></div>
             <div>
-              <h3 className="font-bold text-sm">Bisa Bayar di Tempat (COD)</h3>
-              <p className="text-xs text-gray-400">Belanja aman barang sampai baru bayar.</p>
+              <h3 className="font-bold text-xs md:text-sm text-gray-800">Bisa Bayar di Tempat (COD)</h3>
+              <p className="text-[11px] md:text-xs text-gray-400 mt-0.5">Belanja aman barang sampai baru bayar.</p>
             </div>
           </div>
-          <div className="bg-white p-5 rounded-xl shadow-sm border flex items-center gap-4">
-            <div className="bg-orange-100 p-3 rounded-lg text-orange-600"><Clock className="w-6 h-6" /></div>
+          {/* Menggunakan sm:col-span-2 agar di tablet sedang posisinya pas seimbang */}
+          <div className="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4 sm:col-span-2 md:col-span-1">
+            <div className="bg-orange-50 p-2.5 md:p-3 rounded-lg text-orange-600 flex-shrink-0"><Clock className="w-5 h-5 md:w-6 h-6" /></div>
             <div>
-              <h3 className="font-bold text-sm">Respon Cepat Admin</h3>
-              <p className="text-xs text-gray-400">Konfirmasi via WA kilat setelah checkout.</p>
+              <h3 className="font-bold text-xs md:text-sm text-gray-800">Respon Cepat Admin</h3>
+              <p className="text-[11px] md:text-xs text-gray-400 mt-0.5">Konfirmasi via WA kilat setelah checkout.</p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Daftar Produk */}
-      <main className="max-w-6xl mx-auto px-4 py-16">
-        <div className="flex items-center gap-2 mb-8">
-          <Package className="w-6 h-6 text-orange-500" />
-          <h2 className="text-2xl font-bold text-gray-800">Semua Koleksi Produk</h2>
+      {/* 4. DAFTAR KOLEKSI PRODUK UTAMA */}
+      <main className="max-w-6xl mx-auto px-4 md:px-6 py-12 md:py-16">
+        <div className="flex items-center gap-2 mb-6 md:mb-8">
+          <Package className="w-5 h-5 md:w-6 h-6 text-orange-500" />
+          <h2 className="text-xl md:text-2xl font-bold text-gray-800">Semua Koleksi Produk</h2>
         </div>
 
         {loading ? (
-          <div className="text-center py-24 flex flex-col items-center justify-center">
-            <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-            <p className="text-gray-500 text-lg font-medium">Memuat produk terbaik untuk Anda...</p>
+          <div className="text-center py-20 flex flex-col items-center justify-center">
+            <div className="w-9 h-9 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p className="text-gray-500 text-sm md:text-base font-medium">Memuat produk terbaik untuk Anda...</p>
           </div>
         ) : products.length === 0 ? (
           <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
+            initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-300"
+            className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-300 px-4"
           >
-            <p className="text-gray-500 text-lg font-medium">Belum ada produk yang dijual.</p>
-            <p className="text-sm text-gray-400 mt-1">Silakan tambah produk melalui Dashboard Admin.</p>
+            <Store className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500 font-semibold text-base">Belum ada produk yang dijual.</p>
+            <p className="text-xs text-gray-400 mt-1">Silakan tambah produk melalui Dashboard Admin.</p>
           </motion.div>
         ) : (
-          /* Grid Utama Menggunakan Framer Motion */
+          /* GRID PRODUK NYAMAN: 2 Kolom di HP Layar Kecil, 3 Kolom di Tablet, 4 Kolom di Monitor Laptop */
           <motion.div 
             variants={containerVariants}
             initial="hidden"
             animate="visible"
-            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
+            className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6"
           >
             {products.map((product) => (
-              /* Di sini wajib memakai motion.div agar atribut variants tidak merah */
               <motion.div 
                 key={product.id} 
                 variants={itemVariants as any}
-                whileHover={{ y: -6, transition: { duration: 0.2 } }} 
-                className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between group"
+                // Efek hover y-minus hanya diaktifkan di komputer (md ke atas) agar di HP tidak bug/goyang saat di-scroll
+                className="bg-white border border-gray-200/80 rounded-xl overflow-hidden shadow-sm md:hover:shadow-md md:hover:-translate-y-1.5 transition-all duration-200 flex flex-col justify-between group"
               >
-                {/* Gambar Produk */}
-                <div className="relative aspect-square w-full bg-gray-50 overflow-hidden">
-                  <img 
-                    src={product.gambar1 || '/placeholder.png'} 
-                    alt={product.nama}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                </div>
+                {/* Carousel Foto */}
+                <ProductCarousel product={product} />
 
-                {/* Info & Tombol Aksi */}
-                <div className="p-4 flex-1 flex flex-col justify-between">
+                {/* Konten Keterangan Kartu Produk */}
+                <div className="p-3 md:p-4 flex-1 flex flex-col justify-between">
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-800 line-clamp-2 mb-1 group-hover:text-orange-600 transition-colors">
+                    {/* Menggunakan line-clamp agar tinggi text judul konsisten sama rata */}
+                    <h3 className="text-xs md:text-sm font-semibold text-gray-800 line-clamp-2 mb-1 group-hover:text-orange-600 transition-colors">
                       {product.nama}
                     </h3>
-                    <p className="text-base font-bold text-orange-600 mb-2">
-                      Rp {product.harga.toLocaleString('id-ID')}
+                    <p className="text-sm md:text-base font-extrabold text-orange-600 mb-1.5">
+                      Rp {Number(product.harga).toLocaleString('id-ID')}
                     </p>
-                    <p className="text-xs text-gray-400 line-clamp-2 mb-4">
+                    {/* Sembunyikan deskripsi panjang di HP layar kecil agar layout kotak tetap hemat tempat */}
+                    <p className="text-[11px] md:text-xs text-gray-400 line-clamp-2 mb-3 hidden sm:block">
                       {product.deskripsi || 'Tidak ada deskripsi produk.'}
                     </p>
                   </div>
 
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-gray-400">Stok Tersedia</span>
-                      <span className={`font-bold px-2 py-0.5 rounded ${
+                  <div className="space-y-2 md:space-y-3">
+                    <div className="flex justify-between items-center text-[10px] md:text-xs border-t pt-2 md:pt-3 border-gray-50">
+                      <span className="text-gray-400">Stok</span>
+                      <span className={`font-bold px-1.5 py-0.5 rounded text-[10px] md:text-xs ${
                         product.stock > 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
                       }`}>
                         {product.stock} pcs
@@ -198,7 +271,7 @@ export default function HomePage() {
                     </div>
                     <Link 
                       href={`/product/${product.id}`}
-                      className="block w-full text-center bg-gray-900 hover:bg-orange-600 text-white font-medium py-2 px-4 rounded-lg text-sm transition-all duration-200 shadow-sm hover:shadow active:scale-[0.98]"
+                      className="block w-full text-center bg-gray-900 hover:bg-orange-600 text-white font-semibold py-2 px-3 rounded-lg text-xs md:text-sm transition-all duration-200 shadow-sm touch-manipulation"
                     >
                       Lihat Detail
                     </Link>
@@ -210,8 +283,8 @@ export default function HomePage() {
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="bg-white border-t mt-20 py-8 text-center text-sm text-gray-400">
+      {/* 5. FOOTER */}
+      <footer className="bg-white border-t mt-12 md:mt-24 py-6 md:py-8 text-center text-xs text-gray-400">
         <p>© 2026 SafeHome Store. Hak Cipta Dilindungi.</p>
       </footer>
     </div>
