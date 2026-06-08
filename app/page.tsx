@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldCheck, Truck, Clock, Package, ChevronLeft, ChevronRight, Store } from 'lucide-react';
+import { ShieldCheck, Truck, Clock, Package, ChevronLeft, ChevronRight, Store, Search, ListFilter, X } from 'lucide-react';
 
 interface Product {
   id: number;
@@ -15,69 +15,46 @@ interface Product {
   gambar1: string | null;
   gambar2: string | null;
   gambar3: string | null;
+  // Catatan: Pastikan di tabel Supabase kamu ada kolom kategori/tags (opsional jika ingin mencocokkan kata kunci nama)
 }
 
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: { staggerChildren: 0.05 }
+    transition: { staggerChildren: 0.03 }
   }
 };
 
 const itemVariants = {
-  hidden: { y: 15, opacity: 0 },
-  visible: { y: 0, opacity: 1, transition: { type: 'spring', stiffness: 110 } }
+  hidden: { y: 10, opacity: 0 },
+  visible: { y: 0, opacity: 1, transition: { type: 'spring', stiffness: 120 } }
 };
 
-// --- KOMPONEN BANNER SLIDER OTOMATIS (BARU) ---
+// --- BANNER SLIDER OTOMATIS ---
 function PromoBanner() {
   const banners = ['/baner1.png', '/baner2.png', '/baner3.png', '/baner4.png'];
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [direction, setDirection] = useState(1); // 1 untuk kanan, -1 untuk kiri
+  const [direction, setDirection] = useState(1);
 
   useEffect(() => {
     const timer = setInterval(() => {
       setDirection(1);
       setCurrentIndex((prevIndex) => (prevIndex + 1) % banners.length);
-    }, 4000); // Banner otomatis berganti setiap 4 detik
-
+    }, 5000);
     return () => clearInterval(timer);
   }, [banners.length]);
 
   const slideVariants = {
-    enter: (dir: number) => ({
-      x: dir > 0 ? '100%' : '-100%',
-      opacity: 0
-    }),
-    center: {
-      x: 0,
-      opacity: 1,
-      transition: { x: { type: 'spring', stiffness: 300, damping: 30 }, opacity: { duration: 0.2 } }
-    },
-    exit: (dir: number) => ({
-      x: dir > 0 ? '-100%' : '100%',
-      opacity: 0,
-      transition: { x: { type: 'spring', stiffness: 300, damping: 30 }, opacity: { duration: 0.2 } }
-    })
-  };
-
-  const handleNext = () => {
-    setDirection(1);
-    setCurrentIndex((prev) => (prev + 1) % banners.length);
-  };
-
-  const handlePrev = () => {
-    setDirection(-1);
-    setCurrentIndex((prev) => (prev - 1 + banners.length) % banners.length);
+    enter: (dir: number) => ({ x: dir > 0 ? '100%' : '-100%', opacity: 0 }),
+    center: { x: 0, opacity: 1, transition: { x: { type: 'spring', stiffness: 300, damping: 32 }, opacity: { duration: 0.2 } } },
+    exit: (dir: number) => ({ x: dir > 0 ? '-100%' : '100%', opacity: 0, transition: { x: { type: 'spring', stiffness: 300, damping: 32 }, opacity: { duration: 0.2 } } })
   };
 
   return (
-    <section className="max-w-6xl mx-auto px-4 md:px-6 mt-8">
-      <div className="relative h-[160px] sm:h-[280px] md:h-[360px] w-full rounded-2xl overflow-hidden shadow-sm border border-gray-200 bg-gray-100 group">
-        
-        {/* Gambar Bergerak */}
-        <div className="relative w-full h-full overflow-hidden">
+    <section className="w-full bg-white border-b border-gray-100 pb-6">
+      <div className="max-w-7xl mx-auto px-4 relative group">
+        <div className="relative h-[140px] sm:h-[260px] md:h-[340px] w-full rounded-xl overflow-hidden bg-gray-50">
           <AnimatePresence initial={false} custom={direction} mode="popLayout">
             <motion.img
               key={currentIndex}
@@ -87,37 +64,18 @@ function PromoBanner() {
               initial="enter"
               animate="center"
               exit="exit"
-              alt={`Promo Banner ${currentIndex + 1}`}
+              alt="Promo Banner"
               className="w-full h-full object-cover absolute top-0 left-0"
             />
           </AnimatePresence>
         </div>
-
-        {/* Tombol Navigasi Manual */}
-        <button
-          onClick={handlePrev}
-          className="absolute left-3 top-1/2 -translate-y-1/2 bg-white/80 backdrop-blur-sm p-2 rounded-full shadow hover:bg-orange-500 hover:text-white transition opacity-0 group-hover:opacity-100 z-10 hidden sm:block"
-        >
-          <ChevronLeft className="w-5 h-5" />
-        </button>
-        <button
-          onClick={handleNext}
-          className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/80 backdrop-blur-sm p-2 rounded-full shadow hover:bg-orange-500 hover:text-white transition opacity-0 group-hover:opacity-100 z-10 hidden sm:block"
-        >
-          <ChevronRight className="w-5 h-5" />
-        </button>
-
-        {/* Indikator Titik Ganti */}
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
           {banners.map((_, idx) => (
             <button
               key={idx}
-              onClick={() => {
-                setDirection(idx > currentIndex ? 1 : -1);
-                setCurrentIndex(idx);
-              }}
-              className={`h-2 rounded-full transition-all duration-300 ${
-                idx === currentIndex ? 'w-6 bg-orange-500' : 'w-2 bg-white/60 shadow-sm'
+              onClick={() => { setDirection(idx > currentIndex ? 1 : -1); setCurrentIndex(idx); }}
+              className={`h-1.5 rounded-full transition-all duration-300 ${
+                idx === currentIndex ? 'w-5 bg-orange-500' : 'w-1.5 bg-gray-300'
               }`}
             />
           ))}
@@ -127,79 +85,23 @@ function PromoBanner() {
   );
 }
 
-// --- KOMPONEN INTERNAL CAROUSEL GAMBAR PRODUK ---
-function ProductCarousel({ product }: { product: Product }) {
-  const images = [product.gambar1, product.gambar2, product.gambar3].filter(Boolean) as string[];
-  const [currentIndex, setCurrentIndex] = useState(0);
-
-  if (images.length === 0) {
-    return (
-      <div className="relative aspect-square w-full bg-gray-50 overflow-hidden">
-        <img src="/placeholder.png" alt={product.nama} className="w-full h-full object-cover" />
-      </div>
-    );
-  }
-
-  const handleNext = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setCurrentIndex((prev) => (prev + 1) % images.length);
-  };
-
-  const handlePrev = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
-  };
-
-  return (
-    <div className="relative aspect-square w-full bg-gray-50 overflow-hidden group/carousel select-none">
-      <AnimatePresence mode="wait">
-        <motion.img
-          key={currentIndex}
-          src={images[currentIndex]}
-          alt={`${product.nama} - ${currentIndex + 1}`}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
-          className="w-full h-full object-cover transition-transform duration-500 md:group-hover/carousel:scale-105"
-        />
-      </AnimatePresence>
-
-      {images.length > 1 && (
-        <>
-          <button
-            onClick={handlePrev}
-            className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/90 backdrop-blur-sm p-2 rounded-full shadow-md text-gray-700 hover:bg-orange-500 hover:text-white transition md:opacity-0 md:group-hover/carousel:opacity-100 z-10 touch-manipulation"
-          >
-            <ChevronLeft className="w-4 h-4 md:w-5 h-5" />
-          </button>
-          <button
-            onClick={handleNext}
-            className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/90 backdrop-blur-sm p-2 rounded-full shadow-md text-gray-700 hover:bg-orange-500 hover:text-white transition md:opacity-0 md:group-hover/carousel:opacity-100 z-10 touch-manipulation"
-          >
-            <ChevronRight className="w-4 h-4 md:w-5 h-5" />
-          </button>
-
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
-            {images.map((_, idx) => (
-              <span
-                key={idx}
-                className={`h-1.5 rounded-full transition-all duration-300 ${
-                  idx === currentIndex ? 'w-4 bg-orange-500' : 'w-1.5 bg-white/70 shadow-sm'
-                }`}
-              />
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
 // --- HALAMAN UTAMA ---
 export default function HomePage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // 1. STATE UNTUK KATEGORI YANG DIPILIH
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+
+  const categories = [
+    { name: 'Kunci', keyword: 'kunci', icon: '🔐' },
+    { name: 'CCTV', keyword: 'cctv', icon: '🎥' },
+    { name: 'Brankas', keyword: 'brankas', icon: '🗄️' },
+    { name: 'Sensor', keyword: 'sensor', icon: '🚨' },
+    { name: 'Lampu', keyword: 'lampu', icon: '💡' },
+    { name: 'Gembok', keyword: 'gembok', icon: '🔒' },
+  ];
 
   useEffect(() => {
     async function getProducts() {
@@ -209,164 +111,188 @@ export default function HomePage() {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Gagal mengambil produk:', error.message);
-      } else if (data) {
-        setProducts(data as Product[]);
-      }
+      if (!error && data) setProducts(data as Product[]);
       setLoading(false);
     }
-
     getProducts();
   }, []);
 
+  // 2. PROSES FILTER PRODUK (BERDASARKAN KEYWORD PENCARIAN & KATEGORI AKTIF)
+  const filteredProducts = products.filter((product) => {
+    const matchesSearch = product.nama.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    // Menyaring berdasarkan kata kunci nama produk (misal produk bernama "Kunci Pintu Digital" masuk kategori "Kunci")
+    const matchesCategory = selectedCategory 
+      ? product.nama.toLowerCase().includes(selectedCategory.toLowerCase()) 
+      : true;
+
+    return matchesSearch && matchesCategory;
+  });
+
   return (
-    <div className="bg-gradient-to-b from-gray-50 to-gray-100 min-h-screen text-gray-900 selection:bg-orange-500 selection:text-white antialiased">
+    <div className="bg-[#f8f9fa] min-h-screen text-gray-800 antialiased font-sans">
       
-      {/* 1. NAVBAR RESPONSIF */}
-      <nav className="bg-white/90 backdrop-blur-md shadow-sm border-b sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 md:px-6 py-3.5 flex justify-center sm:justify-start items-center">
-          <Link href="/" className="flex items-center gap-2 active:scale-95 transition-transform">
-            <img 
-              src="/logo.jpg" 
-              alt="SafeHome Store Logo" 
-              className="h-8 md:h-9 w-auto object-contain"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-                const textFallback = document.getElementById('brand-text');
-                if (textFallback) textFallback.classList.remove('hidden');
-              }}
-            />
-            <span id="brand-text" className="text-lg md:text-xl font-bold text-orange-600 tracking-tight hidden">
-              🏡 SafeHome Store
+      {/* NAVBAR CLEAN */}
+      <nav className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col sm:flex-row items-center gap-3 sm:gap-6">
+          <Link href="/" className="flex items-center gap-1 active:scale-95 transition-transform flex-shrink-0">
+            <span className="text-xl font-extrabold tracking-tight text-gray-900">
+              safehome<span className="text-orange-500">store</span>
             </span>
           </Link>
+
+          <div className="relative flex-1 w-full">
+            <input
+              type="text"
+              placeholder="Cari produk keamanan rumah di sini..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-gray-50 border border-gray-300 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-orange-500 focus:bg-white transition-all text-black"
+            />
+            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          </div>
         </div>
       </nav>
 
-      {/* 2. HERO SECTION RESPONSIF */}
-      <header className="bg-white border-b py-12 md:py-24 px-4 text-center relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(#ea580c_1px,transparent_1px)] [background-size:16px_16px] opacity-5"></div>
-        <motion.div 
-          initial={{ opacity: 0, y: -15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="relative z-10 max-w-3xl mx-auto"
-        >
-          <h1 className="text-3xl font-black text-gray-900 sm:text-5xl md:text-6xl tracking-tight leading-tight">
-            Selamat Datang di <span className="bg-gradient-to-r from-orange-500 to-amber-600 bg-clip-text text-transparent">SafeHome</span>
-          </h1>
-          <p className="mt-3 md:mt-5 text-sm md:text-lg text-gray-500 max-w-xl mx-auto font-medium px-2">
-            Temukan produk terbaik untuk keamanan dan kenyamanan rumah Anda dengan harga bersahabat.
-          </p>
-        </motion.div>
-      </header>
+      {/* HERO SLIDER BANNER */}
+      <PromoBanner />
 
-      {/* 3. GRID FITUR KEUNGGULAN */}
-      <section className="max-w-6xl mx-auto px-4 md:px-6 -mt-6 md:-mt-10 relative z-20">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
-          <div className="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-            <div className="bg-orange-50 p-2.5 md:p-3 rounded-lg text-orange-600 flex-shrink-0"><ShieldCheck className="w-5 h-5 md:w-6 h-6" /></div>
-            <div>
-              <h3 className="font-bold text-xs md:text-sm text-gray-800">Produk 100% Original</h3>
-              <p className="text-[11px] md:text-xs text-gray-400 mt-0.5">Jaminan kualitas perlindungan rumah.</p>
-            </div>
-          </div>
-          <div className="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-            <div className="bg-orange-50 p-2.5 md:p-3 rounded-lg text-orange-600 flex-shrink-0"><Truck className="w-5 h-5 md:w-6 h-6" /></div>
-            <div>
-              <h3 className="font-bold text-xs md:text-sm text-gray-800">Bisa Bayar di Tempat (COD)</h3>
-              <p className="text-[11px] md:text-xs text-gray-400 mt-0.5">Belanja aman barang sampai baru bayar.</p>
-            </div>
-          </div>
-          <div className="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4 sm:col-span-2 md:col-span-1">
-            <div className="bg-orange-50 p-2.5 md:p-3 rounded-lg text-orange-600 flex-shrink-0"><Clock className="w-5 h-5 md:w-6 h-6" /></div>
-            <div>
-              <h3 className="font-bold text-xs md:text-sm text-gray-800">Respon Cepat Admin</h3>
-              <p className="text-[11px] md:text-xs text-gray-400 mt-0.5">Konfirmasi via WA kilat setelah checkout.</p>
-            </div>
-          </div>
+      {/* KATEGORI IKON BULAT DINAMIS */}
+      <section className="max-w-7xl mx-auto px-4 py-8 bg-white">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-base font-bold text-gray-800 tracking-tight">Kategori Terpopuler</h2>
+          {selectedCategory && (
+            <button 
+              onClick={() => setSelectedCategory(null)}
+              className="text-xs text-red-500 hover:text-red-600 flex items-center gap-1 font-medium"
+            >
+              <X className="w-3 h-3" /> Hapus Filter Kategori
+            </button>
+          )}
+        </div>
+        
+        <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-none justify-start md:justify-start">
+          {categories.map((cat, idx) => {
+            const isActive = selectedCategory === cat.keyword;
+            return (
+              <div 
+                key={idx} 
+                onClick={() => setSelectedCategory(isActive ? null : cat.keyword)}
+                className="flex flex-col items-center space-y-2 min-w-[85px] cursor-pointer group flex-shrink-0"
+              >
+                <div className={`w-14 h-14 border rounded-full flex items-center justify-center text-2xl transition-all duration-200 ${
+                  isActive 
+                    ? 'border-orange-500 bg-orange-50 scale-105 shadow-sm' 
+                    : 'bg-gray-50 border-gray-100 group-hover:border-orange-400 group-hover:bg-orange-50/30'
+                }`}>
+                  {cat.icon}
+                </div>
+                <span className={`text-xs font-medium text-center transition-colors line-clamp-1 ${
+                  isActive ? 'text-orange-600 font-bold' : 'text-gray-600 group-hover:text-orange-500'
+                }`}>
+                  {cat.name}
+                </span>
+              </div>
+            );
+          })}
         </div>
       </section>
 
-      {/* --- 4. CAROUSEL BANNER PROMO (BARU) --- */}
-      <PromoBanner />
-
-      {/* 5. DAFTAR KOLEKSI PRODUK UTAMA */}
-      <main className="max-w-6xl mx-auto px-4 md:px-6 py-12 md:py-16">
-        <div className="flex items-center gap-2 mb-6 md:mb-8">
-          <Package className="w-5 h-5 md:w-6 h-6 text-orange-500" />
-          <h2 className="text-xl md:text-2xl font-bold text-gray-800">Semua Koleksi Produk</h2>
+      {/* LAYOUT UTAMA */}
+      <main className="max-w-7xl mx-auto px-4 py-6">
+        
+        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex justify-between items-center mb-6">
+          <div className="text-sm text-gray-600">
+            Menampilkan <span className="font-bold text-gray-900">{filteredProducts.length}</span> produk 
+            {selectedCategory && <span> untuk kategori <span className="text-orange-600 font-semibold">"{selectedCategory}"</span></span>}
+          </div>
+          <div className="flex items-center gap-2 text-xs font-semibold text-gray-600 cursor-pointer hover:text-orange-500 border px-3 py-1.5 rounded-lg bg-gray-50">
+            <ListFilter className="w-3.5 h-3.5" />
+            <span>Urutkan: Terbaru</span>
+          </div>
         </div>
 
         {loading ? (
-          <div className="text-center py-20 flex flex-col items-center justify-center">
-            <div className="w-9 h-9 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-            <p className="text-gray-500 text-sm md:text-base font-medium">Memuat produk terbaik untuk Anda...</p>
+          <div className="text-center py-20 flex flex-col items-center">
+            <div className="w-8 h-8 border-3 border-orange-500 border-t-transparent rounded-full animate-spin mb-3"></div>
+            <p className="text-gray-400 text-xs">Memuat katalog...</p>
           </div>
-        ) : products.length === 0 ? (
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-300 px-4"
-          >
-            <Store className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500 font-semibold text-base">Belum ada produk yang dijual.</p>
-          </motion.div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
+            <Store className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+            <p className="text-gray-500 text-sm font-medium">Produk tidak ditemukan</p>
+          </div>
         ) : (
           <motion.div 
             variants={containerVariants}
             initial="hidden"
             animate="visible"
-            className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6"
+            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4"
           >
-            {products.map((product) => (
+            {filteredProducts.map((product) => (
               <motion.div 
                 key={product.id} 
                 variants={itemVariants as any}
-                className="bg-white border border-gray-200/80 rounded-xl overflow-hidden shadow-sm md:hover:shadow-md md:hover:-translate-y-1.5 transition-all duration-200 flex flex-col justify-between group"
+                className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-all duration-150 flex flex-col justify-between group cursor-pointer"
               >
-                <ProductCarousel product={product} />
-
-                <div className="p-3 md:p-4 flex-1 flex flex-col justify-between">
-                  <div>
-                    <h3 className="text-xs md:text-sm font-semibold text-gray-800 line-clamp-2 mb-1 group-hover:text-orange-600 transition-colors">
-                      {product.nama}
-                    </h3>
-                    <p className="text-sm md:text-base font-extrabold text-orange-600 mb-1.5">
-                      Rp {Number(product.harga).toLocaleString('id-ID')}
-                    </p>
-                    <p className="text-[11px] md:text-xs text-gray-400 line-clamp-2 mb-3 hidden sm:block">
-                      {product.deskripsi || 'Tidak ada deskripsi produk.'}
-                    </p>
+                <Link href={`/product/${product.id}`} className="block flex-1">
+                  <div className="aspect-square w-full bg-gray-50 border-b border-gray-100 overflow-hidden relative">
+                    <img 
+                      src={product.gambar1 || '/placeholder.png'} 
+                      alt={product.nama} 
+                      className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300" 
+                    />
+                    {product.stock <= 0 && (
+                      <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
+                        <span className="bg-gray-800 text-white text-[10px] font-bold px-2 py-1 rounded">Habis</span>
+                      </div>
+                    )}
                   </div>
 
-                  <div className="space-y-2 md:space-y-3">
-                    <div className="flex justify-between items-center text-[10px] md:text-xs border-t pt-2 md:pt-3 border-gray-50">
-                      <span className="text-gray-400">Stok</span>
-                      <span className={`font-bold px-1.5 py-0.5 rounded text-[10px] md:text-xs ${
-                        product.stock > 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
-                      }`}>
-                        {product.stock} pcs
-                      </span>
+                  <div className="p-3 flex flex-col justify-between">
+                    <div>
+                      <h3 className="text-xs font-medium text-gray-700 line-clamp-2 min-h-[32px] tracking-tight group-hover:text-orange-500 transition-colors leading-tight">
+                        {product.nama}
+                      </h3>
+                      <p className="text-sm font-extrabold text-gray-900 mt-1.5">
+                        Rp {Number(product.harga).toLocaleString('id-ID')}
+                      </p>
                     </div>
-                    <Link 
-                      href={`/product/${product.id}`}
-                      className="block w-full text-center bg-gray-900 hover:bg-orange-600 text-white font-semibold py-2 px-3 rounded-lg text-xs md:text-sm transition-all duration-200 shadow-sm touch-manipulation"
-                    >
-                      Lihat Detail
-                    </Link>
+
+                    <div className="mt-3 pt-2 border-t border-gray-50 flex justify-between items-center text-[10px] text-gray-400">
+                      <span>Sisa stok: <span className="font-semibold text-gray-600">{product.stock}</span></span>
+                    </div>
                   </div>
-                </div>
+                </Link>
               </motion.div>
             ))}
           </motion.div>
         )}
       </main>
 
-      {/* 6. FOOTER */}
-      <footer className="bg-white border-t mt-12 md:mt-24 py-6 md:py-8 text-center text-xs text-gray-400">
-        <p>© 2026 SafeHome Store. Hak Cipta Dilindungi.</p>
+      {/* LIVE BAR FITUR */}
+      <section className="bg-white border-t border-gray-200 mt-16 py-8">
+        <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
+          <div className="flex flex-col items-center space-y-1">
+            <ShieldCheck className="w-5 h-5 text-gray-600" />
+            <h4 className="text-xs font-bold text-gray-800">Garansi Orisinal</h4>
+            <p className="text-[11px] text-gray-400">Semua produk keamanan bersertifikasi resmi.</p>
+          </div>
+          <div className="flex flex-col items-center space-y-1">
+            <Truck className="w-5 h-5 text-gray-600" />
+            <h4 className="text-xs font-bold text-gray-800">Layanan Antar Aman</h4>
+            <p className="text-[11px] text-gray-400">Bisa COD, amanah sampai di depan rumah.</p>
+          </div>
+          <div className="flex flex-col items-center space-y-1">
+            <Clock className="w-5 h-5 text-gray-600" />
+            <h4 className="text-xs font-bold text-gray-800">Bantuan 24/7</h4>
+            <p className="text-[11px] text-gray-400">Hubungi WhatsApp admin kapan saja siap respon.</p>
+          </div>
+        </div>
+      </section>
+
+      <footer className="bg-[#f8f9fa] py-6 text-center text-[11px] text-gray-400 border-t border-gray-200">
+        <p>© 2026 SafeHome Store. Terinspirasi Layout E-Commerce Premium.</p>
       </footer>
     </div>
   );
