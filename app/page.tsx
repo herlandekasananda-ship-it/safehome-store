@@ -30,7 +30,104 @@ const itemVariants = {
   visible: { y: 0, opacity: 1, transition: { type: 'spring', stiffness: 110 } }
 };
 
-// --- KOMPONEN INTERNAL CAROUSEL GAMBAR (RESPONSIF & TOUCH-FRIENDLY) ---
+// --- KOMPONEN BANNER SLIDER OTOMATIS (BARU) ---
+function PromoBanner() {
+  const banners = ['/baner1.png', '/baner2.png', '/baner3.png', '/baner4.png'];
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [direction, setDirection] = useState(1); // 1 untuk kanan, -1 untuk kiri
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setDirection(1);
+      setCurrentIndex((prevIndex) => (prevIndex + 1) % banners.length);
+    }, 4000); // Banner otomatis berganti setiap 4 detik
+
+    return () => clearInterval(timer);
+  }, [banners.length]);
+
+  const slideVariants = {
+    enter: (dir: number) => ({
+      x: dir > 0 ? '100%' : '-100%',
+      opacity: 0
+    }),
+    center: {
+      x: 0,
+      opacity: 1,
+      transition: { x: { type: 'spring', stiffness: 300, damping: 30 }, opacity: { duration: 0.2 } }
+    },
+    exit: (dir: number) => ({
+      x: dir > 0 ? '-100%' : '100%',
+      opacity: 0,
+      transition: { x: { type: 'spring', stiffness: 300, damping: 30 }, opacity: { duration: 0.2 } }
+    })
+  };
+
+  const handleNext = () => {
+    setDirection(1);
+    setCurrentIndex((prev) => (prev + 1) % banners.length);
+  };
+
+  const handlePrev = () => {
+    setDirection(-1);
+    setCurrentIndex((prev) => (prev - 1 + banners.length) % banners.length);
+  };
+
+  return (
+    <section className="max-w-6xl mx-auto px-4 md:px-6 mt-8">
+      <div className="relative h-[160px] sm:h-[280px] md:h-[360px] w-full rounded-2xl overflow-hidden shadow-sm border border-gray-200 bg-gray-100 group">
+        
+        {/* Gambar Bergerak */}
+        <div className="relative w-full h-full overflow-hidden">
+          <AnimatePresence initial={false} custom={direction} mode="popLayout">
+            <motion.img
+              key={currentIndex}
+              src={banners[currentIndex]}
+              custom={direction}
+              variants={slideVariants as any}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              alt={`Promo Banner ${currentIndex + 1}`}
+              className="w-full h-full object-cover absolute top-0 left-0"
+            />
+          </AnimatePresence>
+        </div>
+
+        {/* Tombol Navigasi Manual */}
+        <button
+          onClick={handlePrev}
+          className="absolute left-3 top-1/2 -translate-y-1/2 bg-white/80 backdrop-blur-sm p-2 rounded-full shadow hover:bg-orange-500 hover:text-white transition opacity-0 group-hover:opacity-100 z-10 hidden sm:block"
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+        <button
+          onClick={handleNext}
+          className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/80 backdrop-blur-sm p-2 rounded-full shadow hover:bg-orange-500 hover:text-white transition opacity-0 group-hover:opacity-100 z-10 hidden sm:block"
+        >
+          <ChevronRight className="w-5 h-5" />
+        </button>
+
+        {/* Indikator Titik Ganti */}
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+          {banners.map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => {
+                setDirection(idx > currentIndex ? 1 : -1);
+                setCurrentIndex(idx);
+              }}
+              className={`h-2 rounded-full transition-all duration-300 ${
+                idx === currentIndex ? 'w-6 bg-orange-500' : 'w-2 bg-white/60 shadow-sm'
+              }`}
+            />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// --- KOMPONEN INTERNAL CAROUSEL GAMBAR PRODUK ---
 function ProductCarousel({ product }: { product: Product }) {
   const images = [product.gambar1, product.gambar2, product.gambar3].filter(Boolean) as string[];
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -126,7 +223,7 @@ export default function HomePage() {
   return (
     <div className="bg-gradient-to-b from-gray-50 to-gray-100 min-h-screen text-gray-900 selection:bg-orange-500 selection:text-white antialiased">
       
-      {/* 1. NAVBAR RESPONSIF (Tanpa Tombol Admin) */}
+      {/* 1. NAVBAR RESPONSIF */}
       <nav className="bg-white/90 backdrop-blur-md shadow-sm border-b sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 md:px-6 py-3.5 flex justify-center sm:justify-start items-center">
           <Link href="/" className="flex items-center gap-2 active:scale-95 transition-transform">
@@ -192,7 +289,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 4. DAFTAR KOLEKSI PRODUK UTAMA */}
+      {/* --- 4. CAROUSEL BANNER PROMO (BARU) --- */}
+      <PromoBanner />
+
+      {/* 5. DAFTAR KOLEKSI PRODUK UTAMA */}
       <main className="max-w-6xl mx-auto px-4 md:px-6 py-12 md:py-16">
         <div className="flex items-center gap-2 mb-6 md:mb-8">
           <Package className="w-5 h-5 md:w-6 h-6 text-orange-500" />
@@ -264,7 +364,7 @@ export default function HomePage() {
         )}
       </main>
 
-      {/* 5. FOOTER */}
+      {/* 6. FOOTER */}
       <footer className="bg-white border-t mt-12 md:mt-24 py-6 md:py-8 text-center text-xs text-gray-400">
         <p>© 2026 SafeHome Store. Hak Cipta Dilindungi.</p>
       </footer>
