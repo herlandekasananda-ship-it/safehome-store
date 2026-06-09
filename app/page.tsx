@@ -15,7 +15,6 @@ interface Product {
   gambar1: string | null;
   gambar2: string | null;
   gambar3: string | null;
-  // Catatan: Pastikan di tabel Supabase kamu ada kolom kategori/tags (opsional jika ingin mencocokkan kata kunci nama)
 }
 
 const containerVariants = {
@@ -90,8 +89,6 @@ export default function HomePage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  
-  // 1. STATE UNTUK KATEGORI YANG DIPILIH
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const categories = [
@@ -103,25 +100,32 @@ export default function HomePage() {
     { name: 'Gembok', keyword: 'gembok', icon: '🔒' },
   ];
 
-  useEffect(() => {
-    async function getProducts() {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .order('created_at', { ascending: false });
+  // --- FUNGSI AMBIL DATA YANG BISA DIPANGGIL BERULANG ---
+  async function fetchFreshProducts() {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-      if (!error && data) setProducts(data as Product[]);
-      setLoading(false);
-    }
-    getProducts();
+    if (!error && data) setProducts(data as Product[]);
+    setLoading(false);
+  }
+
+  // Menjalankan fetch data saat pertama kali aplikasi dibuka
+  useEffect(() => {
+    fetchFreshProducts();
   }, []);
 
-  // 2. PROSES FILTER PRODUK (BERDASARKAN KEYWORD PENCARIAN & KATEGORI AKTIF)
+  // TRIK AMPUH: Mengatasi cache lama Next.js saat kembali dari halaman checkout
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      fetchFreshProducts();
+    }
+  }, []);
+
   const filteredProducts = products.filter((product) => {
     const matchesSearch = product.nama.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    // Menyaring berdasarkan kata kunci nama produk (misal produk bernama "Kunci Pintu Digital" masuk kategori "Kunci")
     const matchesCategory = selectedCategory 
       ? product.nama.toLowerCase().includes(selectedCategory.toLowerCase()) 
       : true;
@@ -171,7 +175,7 @@ export default function HomePage() {
           )}
         </div>
         
-        <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-none justify-start md:justify-start">
+        <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-none justify-start">
           {categories.map((cat, idx) => {
             const isActive = selectedCategory === cat.keyword;
             return (
