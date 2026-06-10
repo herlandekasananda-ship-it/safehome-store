@@ -5,7 +5,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
-import { MapPin, ShoppingBag, CheckCircle, Printer, X, Navigation } from 'lucide-react';
+import { MapPin, ShoppingBag, CheckCircle, X, Navigation } from 'lucide-react';
 
 interface CheckoutItem {
   product_id: number;
@@ -24,10 +24,11 @@ export default function CheckoutPage() {
   const router = useRouter();
   const strukRef = useRef<HTMLDivElement>(null);
   
-  // FIX HYDRATION: State untuk memastikan komponen sudah terpasang di client
+  // State untuk memastikan komponen sudah terpasang aman di client
   const [isMounted, setIsMounted] = useState(false);
 
-  const [cartItem, setCartItem] = useState<CheckoutItem | null>(null);
+  // SEKARANG: Menggunakan Array untuk menampung banyak produk sekaligus
+  const [cartItems, setCartItems] = useState<CheckoutItem[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [showInvoice, setShowInvoice] = useState(false);
   const [orderId, setOrderId] = useState<string>('');
@@ -35,7 +36,7 @@ export default function CheckoutPage() {
   const [provinces, setProvinces] = useState<RegionItem[]>([]);
   const [regencies, setRegencies] = useState<RegionItem[]>([]);
   const [districts, setDistricts] = useState<RegionItem[]>([]);
-  const [villages, setVillages] = useState<RegionItem[]>([]); // State baru untuk Kelurahan/Desa
+  const [villages, setVillages] = useState<RegionItem[]>([]); 
   const [loadingGPS, setLoadingGPS] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -45,32 +46,41 @@ export default function CheckoutPage() {
     provinsi: '',
     kota: '',
     kecamatan: '',
-    kelurahan: '', // Properti baru
+    kelurahan: '', 
     kodePos: '',
     detailAlamat: '',
   });
 
+  // Menerima kiriman data dari Halaman Cart ( session_item ) dalam bentuk array
   useEffect(() => {
     setIsMounted(true);
 
-    const savedItem = sessionStorage.getItem('checkout_item');
-    if (!savedItem) {
-      alert('Tidak ada produk di keranjang checkout.');
+    const savedItems = sessionStorage.getItem('checkout_item');
+    if (!savedItems) {
+      alert('Tidak ada produk di keranjang checkout. Anda akan dialihkan.');
       router.push('/');
       return;
     }
-    setCartItem(JSON.parse(savedItem));
+    
+    try {
+      const parsed = JSON.parse(savedItems);
+      // Memastikan data yang disimpan di state selalu berformat Array
+      setCartItems(Array.isArray(parsed) ? parsed : [parsed]);
+    } catch (e) {
+      console.error("Gagal membaca data checkout item:", e);
+      router.push('/');
+    }
 
-    // Ambil data provinsi di sisi client
+    // Memuat database wilayah administrasi Indonesia awal
     fetch('https://www.emsifa.com/api-wilayah-indonesia/api/provinces.json')
       .then(res => res.json())
       .then(data => setProvinces(data))
-      .catch(err => console.error('Gagal memuat provinsi:', err));
+      .catch(err => console.error('Gagal memuat daftar provinsi:', err));
   }, [router]);
 
   const handleProvinsiChange = async (provinsiName: string) => {
     const selectedProv = provinces.find(p => p.name === provinsiName);
-    setFormData({ ...formData, provinsi: provinsiName, kota: '', kecamatan: '', kelurahan: '' });
+    setFormData(prev => ({ ...prev, provinsi: provinsiName, kota: '', kecamatan: '', kelurahan: '' }));
     setRegencies([]);
     setDistricts([]);
     setVillages([]);
@@ -88,7 +98,7 @@ export default function CheckoutPage() {
 
   const handleKotaChange = async (kotaName: string) => {
     const selectedKota = regencies.find(r => r.name === kotaName);
-    setFormData({ ...formData, kota: kotaName, kecamatan: '', kelurahan: '' });
+    setFormData(prev => ({ ...prev, kota: kotaName, kecamatan: '', kelurahan: '' }));
     setDistricts([]);
     setVillages([]);
 
@@ -105,7 +115,7 @@ export default function CheckoutPage() {
 
   const handleKecamatanChange = async (kecamatanName: string) => {
     const selectedKec = districts.find(d => d.name === kecamatanName);
-    setFormData({ ...formData, kecamatan: kecamatanName, kelurahan: '' });
+    setFormData(prev => ({ ...prev, kecamatan: kecamatanName, kelurahan: '' }));
     setVillages([]);
 
     if (selectedKec) {
@@ -121,7 +131,7 @@ export default function CheckoutPage() {
 
   const handleGetGPSLocation = () => {
     if (typeof window === 'undefined' || !navigator.geolocation) {
-      alert('Browser atau HP Anda tidak mendukung deteksi lokasi otomatis.');
+      alert('Browser atau perangkat pintar Anda tidak mendukung deteksi GPS.');
       return;
     }
 
@@ -161,14 +171,14 @@ export default function CheckoutPage() {
       },
       (error) => {
         console.error("GPS Error Log:", error);
-        alert('Gagal mendapatkan lokasi. Pastikan GPS HP aktif dan izin lokasi di-allow pada browser.');
+        alert('Gagal mendapatkan lokasi. Pastikan GPS aktif dan berikan izin akses lokasi.');
         setLoadingGPS(false);
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
   };
 
-  if (!isMounted || !cartItem) {
+  if (!isMounted || cartItems.length === 0) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
         <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mb-3"></div>
@@ -177,7 +187,8 @@ export default function CheckoutPage() {
     );
   }
 
-  const totalTagihan = cartItem.harga * cartItem.qty;
+  // Menghitung akumulasi total tagihan dari seluruh item di dalam array
+  const totalTagihan = cartItems.reduce((acc, item) => acc + (item.harga * item.qty), 0);
   const gabunganAlamat = `${formData.detailAlamat}, Kel. ${formData.kelurahan}, Kec. ${formData.kecamatan}, ${formData.kota}, ${formData.provinsi} (${formData.kodePos})`;
 
   const handleSubmitOrder = async (e: React.FormEvent) => {
@@ -190,52 +201,106 @@ export default function CheckoutPage() {
     setSubmitting(true);
     const customInvoiceId = `SH-${Date.now().toString().slice(-6)}`;
 
-    const { error } = await supabase
-      .from('orders')
-      .insert([
-        {
-          nama: formData.nama,
-          email: formData.email || null,
-          whatsapp: formData.whatsapp,
-          alamat: gabunganAlamat,
-          produk_id: cartItem.product_id,
-          qty: cartItem.qty,
-          total: totalTagihan,
-          status: 'pending'
-        }
-      ]);
+    try {
+      // 1. Memasukkan seluruh item belanjaan ke tabel orders menggunakan Promise.all (Multi-Items)
+      const insertPromises = cartItems.map(item => 
+        supabase.from('orders').insert([
+          {
+            nama: formData.nama,
+            email: formData.email || null,
+            whatsapp: formData.whatsapp,
+            alamat: gabunganAlamat,
+            produk_id: item.product_id, 
+            qty: item.qty,
+            total: item.harga * item.qty, // total per item produk
+            status: 'pending'
+          }
+        ])
+      );
 
-    if (error) {
-      alert('Gagal memproses pesanan: ' + error.message);
-      setSubmitting(false);
-    } else {
-      await supabase.rpc('decrement_stock', { 
-        row_id: cartItem.product_id, 
-        quantity: cartItem.qty 
-      });
+      const insertResults = await Promise.all(insertPromises);
+      const hasInsertError = insertResults.find(res => res.error);
+
+      if (hasInsertError) {
+        throw new Error(hasInsertError.error?.message || 'Gagal menyimpan salah satu item pesanan.');
+      }
+
+      // 2. Mengurangi stok masing-masing produk yang dibeli di Supabase RPC
+      const stockPromises = cartItems.map(item =>
+        supabase.rpc('decrement_stock', { 
+          row_id: item.product_id, 
+          quantity: item.qty 
+        })
+      );
+
+      await Promise.all(stockPromises);
 
       setOrderId(customInvoiceId);
       setSubmitting(false);
       setShowInvoice(true); 
+      
+      // Bersihkan penyimpanan session agar aman
       sessionStorage.removeItem('checkout_item');
+
+    } catch (err: any) {
+      alert('Gagal memproses pesanan: ' + err.message);
+      setSubmitting(false);
     }
   };
 
+  // Mencetak Dokumen Invoice menggunakan Iframe terisolasi
   const handlePrintInvoice = () => {
     const printContent = strukRef.current?.innerHTML;
-    const originalContent = document.body.innerHTML;
+    if (!printContent) return;
 
-    if (printContent) {
-      document.body.innerHTML = printContent;
-      window.print();
-      document.body.innerHTML = originalContent;
-      window.location.reload(); 
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.bottom = '0';
+    iframe.style.right = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = 'none';
+    
+    document.body.appendChild(iframe);
+    
+    const doc = iframe.contentWindow?.document;
+    if (doc) {
+      doc.open();
+      doc.write(`
+        <html>
+          <head>
+            <title>Cetak Invoice - ${orderId}</title>
+            <style>
+              body { font-family: monospace; padding: 20px; color: #222; font-size: 12px; }
+              .text-center { text-align: center; }
+              .border-b { border-bottom: 1px dashed #444; }
+              .py-2 { padding-top: 8px; padding-bottom: 8px; }
+              .pb-3 { padding-bottom: 12px; }
+              .mt-1 { margin-top: 4px; }
+              .mb-1 { margin-bottom: 4px; }
+              .w-full { width: 100%; }
+              .flex { display: flex; }
+              .justify-between { justify-content: space-between; }
+            </style>
+          </head>
+          <body>
+            ${printContent}
+          </body>
+        </html>
+      `);
+      doc.close();
+      
+      setTimeout(() => {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+        document.body.removeChild(iframe);
+      }, 500);
     }
   };
 
   return (
     <div className="bg-[#f4f4f4] min-h-screen text-[#333333] antialiased pb-16">
-      {/* Navbar */}
+      {/* Top Navigation Global */}
       <nav className="bg-white border-b border-gray-200 py-4 px-4 sticky top-0 z-40 shadow-sm">
         <div className="max-w-5xl mx-auto flex justify-between items-center">
           <Link href="/" className="text-lg font-bold tracking-tight text-gray-900">
@@ -247,7 +312,7 @@ export default function CheckoutPage() {
 
       <main className="max-w-5xl mx-auto px-4 mt-6 grid grid-cols-1 lg:grid-cols-12 gap-5">
         
-        {/* SISI KIRI: Formulir Alamat */}
+        {/* PANEL SISI KIRI: Input Form Alamat Pembeli */}
         <div className="lg:col-span-7 bg-white p-5 md:p-6 rounded border border-gray-200 shadow-sm space-y-5">
           <div className="flex justify-between items-center border-b pb-2">
             <h2 className="text-sm font-black text-gray-900 uppercase tracking-wider flex items-center gap-2">
@@ -257,7 +322,7 @@ export default function CheckoutPage() {
               type="button"
               onClick={handleGetGPSLocation}
               disabled={loadingGPS}
-              className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold px-3 py-1.5 rounded shadow-xs transition"
+              className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold px-3 py-1.5 rounded shadow-xs transition disabled:opacity-50"
             >
               <Navigation className={`w-3 h-3 ${loadingGPS ? 'animate-spin' : ''}`} />
               {loadingGPS ? 'Mengunci Koordinat...' : '📍 Sherlock Alamat'}
@@ -387,23 +452,28 @@ export default function CheckoutPage() {
           </form>
         </div>
 
-        {/* SISI KANAN: Ringkasan Belanja */}
+        {/* PANEL SISI KANAN: Perbaikan Menggunakan Map Looping untuk Banyak Produk */}
         <div className="lg:col-span-5 space-y-4">
           <div className="bg-white p-4 md:p-5 rounded border border-gray-200 shadow-sm">
             <h2 className="text-xs font-black text-gray-900 uppercase tracking-wider border-b pb-2 mb-4 flex items-center gap-1.5">
               <ShoppingBag className="w-4 h-4 text-orange-500" /> Ringkasan Pembelian
             </h2>
             
-            <div className="flex gap-4">
-              <img 
-                src={cartItem.gambar || '/placeholder.png'} alt="" 
-                className="w-16 h-16 object-contain rounded border border-gray-100 bg-white flex-shrink-0"
-              />
-              <div className="text-xs">
-                <h3 className="font-bold text-gray-800 line-clamp-2 leading-tight">{cartItem.nama}</h3>
-                <p className="text-gray-400 mt-1">Kuantitas: {cartItem.qty} unit</p>
-                <p className="text-gray-900 font-extrabold mt-1">Rp {cartItem.harga.toLocaleString('id-ID')}</p>
-              </div>
+            {/* List produk belanja didesain scrollable jika terlalu banyak */}
+            <div className="space-y-4 max-h-[280px] overflow-y-auto pr-1">
+              {cartItems.map((item, index) => (
+                <div key={index} className="flex gap-4 border-b border-gray-100 pb-3 last:border-0 last:pb-0">
+                  <img 
+                    src={item.gambar || '/placeholder.png'} alt="" 
+                    className="w-14 h-14 object-contain rounded border border-gray-100 bg-white flex-shrink-0"
+                  />
+                  <div className="text-xs flex-1">
+                    <h3 className="font-bold text-gray-800 line-clamp-2 leading-tight">{item.nama}</h3>
+                    <p className="text-gray-400 mt-1">Kuantitas: {item.qty} unit</p>
+                    <p className="text-gray-900 font-extrabold mt-0.5">Rp {(item.harga * item.qty).toLocaleString('id-ID')}</p>
+                  </div>
+                </div>
+              ))}
             </div>
 
             <div className="border-t border-gray-200 mt-5 pt-4 space-y-2.5 text-xs text-gray-500">
@@ -428,7 +498,7 @@ export default function CheckoutPage() {
         </div>
       </main>
 
-      {/* POP UP MODAL STRUK BELANJA */}
+      {/* POP UP MODAL NOTA / INVOICE BELANJA */}
       {showInvoice && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white w-full max-w-md rounded shadow-2xl overflow-hidden my-auto">
@@ -445,7 +515,7 @@ export default function CheckoutPage() {
               </button>
             </div>
 
-            {/* AREA NOTA INVOICE YANG DICETAK */}
+            {/* AREA NOTA INVOICE YANG DICETAK (Disesuaikan Perulangan Multi-Item) */}
             <div ref={strukRef} className="p-6 bg-white font-mono text-xs text-[#222222] space-y-4">
               <div className="text-center border-b border-dashed border-gray-400 pb-3">
                 <h2 className="text-sm font-bold tracking-widest">SAFEHOME STORE</h2>
@@ -466,9 +536,13 @@ export default function CheckoutPage() {
 
               <div className="border-t border-b border-dashed border-gray-400 py-2.5">
                 <p className="font-bold text-gray-900 mb-1.5">Rincian Belanja:</p>
-                <div className="flex justify-between items-start text-[11px]">
-                  <span className="max-w-[240px] pr-2">{cartItem.nama} ({cartItem.qty}x)</span>
-                  <span className="font-bold shrink-0">Rp {totalTagihan.toLocaleString('id-ID')}</span>
+                <div className="space-y-2">
+                  {cartItems.map((item, index) => (
+                    <div key={index} className="flex justify-between items-start text-[11px]">
+                      <span className="max-w-[240px] pr-2">{item.nama} ({item.qty}x)</span>
+                      <span className="font-bold shrink-0">Rp {(item.harga * item.qty).toLocaleString('id-ID')}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -484,12 +558,12 @@ export default function CheckoutPage() {
               </div>
 
               <div className="text-center text-[10px] text-gray-400 pt-3 border-t border-dashed border-gray-300">
-                 Terima kasih telah berbelanja di SafeHome Store! <br />
+                Terima kasih telah berbelanja di SafeHome Store! <br />
                 Simpan nota ini sebagai bukti transaksi sah Anda.
               </div>
             </div>
 
-            {/* Menu Tombol Aksi */}
+            {/* Menu Tombol Aksi Akhir */}
             <div className="bg-gray-50 p-4 border-t border-gray-200 flex flex-col sm:flex-row gap-2">
               <button
                 onClick={handlePrintInvoice}
