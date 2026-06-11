@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
-import { CheckCircle, AlertTriangle, ArrowLeft, ShoppingBag, ShieldCheck, Heart, Share2 } from 'lucide-react';
+import { CheckCircle, AlertTriangle, ArrowLeft, ShoppingBag, ShieldCheck, Heart, Share2, Check } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface Product {
   id: number;
@@ -34,6 +35,9 @@ export default function ProductDetailPage() {
   
   const [activeMedia, setActiveMedia] = useState<MediaItem>({ type: 'image', url: '/placeholder.png' });
   const [mediaList, setMediaList] = useState<MediaItem[]>([]);
+  
+  // State untuk feedback share / copy link
+  const [shareToast, setShareToast] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchProductData() {
@@ -120,9 +124,51 @@ export default function ProductDetailPage() {
     router.push('/checkout');
   };
 
+  // FUNGSI UTAMA: Fitur Bagikan Produk Aktif
+  const handleShareProduct = async () => {
+    const shareData = {
+      title: product.nama,
+      text: `Yuk cek ${product.nama} di SafeHome Store! Keamanan rumah terbaik untuk Anda.`,
+      url: window.location.href,
+    };
+
+    // Deteksi jika browser mendukung Web Share API asli (biasanya browser mobile & Safari)
+    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+      try {
+        await navigator.share(shareData);
+      } catch (error) {
+        console.error('User membatalkan atau terjadi error saat share:', error);
+      }
+    } else {
+      // Fallback: Salin URL tautan secara otomatis ke clipboard jika Web Share API tidak didukung
+      try {
+        await navigator.clipboard.writeText(window.location.href);
+        setShareToast('Tautan produk berhasil disalin ke clipboard!');
+        setTimeout(() => setShareToast(null), 2500);
+      } catch (err) {
+        console.error('Gagal menyalin tautan:', err);
+      }
+    }
+  };
+
   return (
-    <div className="bg-[#f4f4f4] min-h-screen text-[#333333] antialiased font-sans pb-24 md:pb-16">
+    <div className="bg-[#f4f4f4] min-h-screen text-[#333333] antialiased font-sans pb-24 md:pb-16 relative">
       
+      {/* GLOBAL TOAST ALERTS */}
+      <AnimatePresence>
+        {shareToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 20, x: '-50%' }}
+            animate={{ opacity: 1, y: 0, x: '-50%' }}
+            exit={{ opacity: 0, y: 20, x: '-50%' }}
+            className="fixed bottom-28 md:bottom-10 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-xl flex items-center gap-2 z-[99] whitespace-nowrap border border-gray-800"
+          >
+            <Check className="w-3.5 h-3.5 text-emerald-400 stroke-[3]" />
+            <span>{shareToast}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* HEADER NAVBAR */}
       <nav className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
@@ -190,8 +236,15 @@ export default function ProductDetailPage() {
             )}
 
             <div className="flex items-center justify-center gap-6 pt-2 border-t border-gray-100 text-xs text-gray-500">
-              <button className="flex items-center gap-1 hover:text-red-500 transition-colors"><Heart className="w-4 h-4" /> Wishlist</button>
-              <button className="flex items-center gap-1 hover:text-blue-500 transition-colors"><Share2 className="w-4 h-4" /> Bagikan</button>
+              <button className="flex items-center gap-1 hover:text-red-500 transition-colors">
+                <Heart className="w-4 h-4" /> Wishlist
+              </button>
+              <button 
+                onClick={handleShareProduct} 
+                className="flex items-center gap-1 text-gray-600 hover:text-orange-500 active:scale-95 transition-all font-medium"
+              >
+                <Share2 className="w-4 h-4" /> Bagikan
+              </button>
             </div>
           </div>
 
@@ -241,7 +294,7 @@ export default function ProductDetailPage() {
             </div>
           </div>
 
-          {/* KOLOM KANAN: PANEL DI DESKTOP (Menempel pas di-scroll) */}
+          {/* KOLOM KANAN: PANEL DI DESKTOP */}
           <div className="hidden lg:block lg:col-span-3 lg:sticky lg:top-20 bg-white border-2 border-gray-200 p-4 rounded shadow-sm space-y-4">
             <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider border-b pb-1.5">
               Atur Jumlah & Jasa
@@ -338,7 +391,7 @@ export default function ProductDetailPage() {
         )}
       </main>
 
-      {/* FLOATING ACTION BAR: SELALU TAMPIL DI BAWAH KHUSUS LAYAR HP */}
+      {/* FLOATING ACTION BAR: KHUSUS LAYAR HP */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-3 flex items-center justify-between gap-4 z-50 shadow-[0_-4px_12px_rgba(0,0,0,0.08)]">
         <div className="flex flex-col">
           <span className="text-[10px] text-gray-400 leading-none">Total Harga</span>
@@ -348,7 +401,6 @@ export default function ProductDetailPage() {
         </div>
         
         <div className="flex items-center gap-2">
-          {/* Pengatur Qty Mini */}
           <div className="flex items-center border border-gray-300 rounded overflow-hidden h-9 bg-white">
             <button 
               onClick={() => setQty(prev => Math.max(1, prev - 1))}
@@ -365,7 +417,6 @@ export default function ProductDetailPage() {
             </button>
           </div>
 
-          {/* Tombol Eksekusi */}
           <button
             onClick={handleBeliLangsung}
             disabled={product.stock < 1}

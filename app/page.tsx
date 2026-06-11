@@ -1,10 +1,52 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldCheck, Store, Search, ListFilter, X, ChevronLeft, ChevronRight, ShoppingBag, Percent, ArrowRight, Check } from 'lucide-react';
+
+// AMBIL IKON UTAMA DARI LUCIDE
+import { 
+  ShieldCheck, 
+  Store, 
+  Search, 
+  ListFilter, 
+  X, 
+  ChevronLeft, 
+  ChevronRight, 
+  Percent, 
+  ArrowRight, 
+  Check, 
+  Cctv,
+  Smartphone, // Untuk Aksesoris HP
+  Sparkles     // Untuk Perangkap / Alternatif lain
+} from 'lucide-react';
+
+// AMBIL SEMUA IKON KATEGORI & KART DARI REACT ICONS
+import { 
+  FaKey, 
+  FaVault, 
+  FaLightbulb, 
+  FaLock, 
+  FaBell, 
+  FaShieldHalved, 
+  FaFingerprint, 
+  FaMicrophone, 
+  FaTowerBroadcast, 
+  FaHammer, 
+  FaPlug, 
+  FaSolarPanel, 
+  FaHouseSignal, 
+  FaWrench, 
+  FaUserShield, 
+  FaFireExtinguisher, 
+  FaKitMedical, 
+  FaWifi,
+  FaCartShopping,
+  FaMotorcycle // Untuk Aksesoris Motor
+} from 'react-icons/fa6';
+import { MdOutlineSensors } from 'react-icons/md';
+
 import { getOrCreateSessionId } from '@/lib/session';
 
 interface Product {
@@ -16,6 +58,15 @@ interface Product {
   gambar1: string | null;
   gambar2: string | null;
   gambar3: string | null;
+}
+
+interface FlyingItem {
+  id: string;
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+  image: string;
 }
 
 const containerVariants = {
@@ -78,27 +129,49 @@ function PromoBanner() {
 
 // --- HALAMAN UTAMA ---
 export default function HomePage() {
+  const [isMounted, setIsMounted] = useState(false);
+
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   
-  // State untuk menangani loading per ID produk saat ditambahkan ke keranjang
+  const [cartCount, setCartCount] = useState<number>(0);
   const [cartLoadingId, setCartLoadingId] = useState<number | null>(null);
   const [successId, setSuccessId] = useState<number | null>(null);
 
-  // State Kontrol Splash & Alert
   const [showSplash, setShowSplash] = useState(true);
   const [showAlert, setShowAlert] = useState(false);
   const [bestSellerProduct, setBestSellerProduct] = useState<Product | null>(null);
 
+  const [flyingItems, setFlyingItems] = useState<FlyingItem[]>([]);
+  const cartIconRef = useRef<HTMLAnchorElement>(null);
+
+  // DAFTAR KATEGORI (Ditambah Aksesoris Motor, Aksesoris HP, dan Perangkap)
   const categories = [
-    { name: 'Kunci', keyword: 'kunci', icon: '🔐' },
-    { name: 'CCTV', keyword: 'cctv', icon: '🎥' },
-    { name: 'Brankas', keyword: 'brankas', icon: '🗄️' },
-    { name: 'Sensor', keyword: 'sensor', icon: '🚨' },
-    { name: 'Lampu', keyword: 'lampu', icon: '💡' },
-    { name: 'Gembok', keyword: 'gembok', icon: '🔒' },
+    { name: 'Kunci', keyword: 'kunci', icon: <FaKey className="w-5 h-5" /> },
+    { name: 'CCTV', keyword: 'cctv', icon: <Cctv className="w-5 h-5" /> },
+    { name: 'Aksesoris Motor', keyword: 'motor', icon: <FaMotorcycle className="w-5 h-5" /> },
+    { name: 'Aksesoris HP', keyword: 'hp', icon: <Smartphone className="w-5 h-5" /> },
+    { name: 'Perangkap', keyword: 'perangkap', icon: <Sparkles className="w-5 h-5" /> },
+    { name: 'Brankas', keyword: 'brankas', icon: <FaVault className="w-5 h-5" /> },
+    { name: 'Sensor', keyword: 'sensor', icon: <MdOutlineSensors className="w-5 h-5" /> },
+    { name: 'Lampu', keyword: 'lampu', icon: <FaLightbulb className="w-5 h-5" /> },
+    { name: 'Gembok', keyword: 'gembok', icon: <FaLock className="w-5 h-5" /> },
+    { name: 'Alarm', keyword: 'alarm', icon: <FaBell className="w-5 h-5" /> },
+    { name: 'Akses Biometrik', keyword: 'fingerprint', icon: <FaFingerprint className="w-5 h-5" /> },
+    { name: 'Interkom', keyword: 'intercom', icon: <FaMicrophone className="w-5 h-5" /> },
+    { name: 'Detektor Api', keyword: 'fire', icon: <FaFireExtinguisher className="w-5 h-5" /> },
+    { name: 'Peralatan', keyword: 'peralatan', icon: <FaHammer className="w-5 h-5" /> },
+    { name: 'Sistem Wi-Fi', keyword: 'wifi', icon: <FaWifi className="w-5 h-5" /> },
+    { name: 'Panel Surya', keyword: 'solar', icon: <FaSolarPanel className="w-5 h-5" /> },
+    { name: 'Smart Hub', keyword: 'hub', icon: <FaHouseSignal className="w-5 h-5" /> },
+    { name: 'Suku Cadang', keyword: 'sparepart', icon: <FaWrench className="w-5 h-5" /> },
+    { name: 'Penjaga Sinyal', keyword: 'booster', icon: <FaTowerBroadcast className="w-5 h-5" /> },
+    { name: 'Kabel Saklar', keyword: 'kabel', icon: <FaPlug className="w-5 h-5" /> },
+    { name: 'Atribut Patroli', keyword: 'patroli', icon: <FaUserShield className="w-5 h-5" /> },
+    { name: 'Kotak P3K', keyword: 'p3k', icon: <FaKitMedical className="w-5 h-5" /> },
+    { name: 'Gesper Safety', keyword: 'safety', icon: <FaShieldHalved className="w-5 h-5" /> },
   ];
 
   async function initAppData() {
@@ -110,6 +183,8 @@ export default function HomePage() {
 
       if (allProductsRes.data) setProducts(allProductsRes.data as Product[]);
       if (bestSellerRes.data) setBestSellerProduct(bestSellerRes.data as Product);
+      
+      await refreshCartCount();
     } catch (err) {
       console.error(err);
     } finally {
@@ -117,13 +192,46 @@ export default function HomePage() {
     }
   }
 
-  // FUNGSI AKSI: Tambah Ke Keranjang Berbasis Session ID Tanpa Login
-  async function handleAddToCart(productId: number) {
+  async function refreshCartCount() {
+    const sessionId = getOrCreateSessionId();
+    try {
+      const { data } = await supabase
+        .from('carts')
+        .select('quantity')
+        .eq('session_id', sessionId);
+        
+      if (data) {
+        const total = data.reduce((sum, item) => sum + (item.quantity || 0), 0);
+        setCartCount(total);
+      }
+    } catch (error) {
+      console.error('Gagal mengambil total kuantiti keranjang:', error);
+    }
+  }
+
+  async function handleAddToCart(productId: number, imageUrl: string | null, event: React.MouseEvent<HTMLButtonElement>) {
+    if (cartLoadingId === productId) return;
+    
     setCartLoadingId(productId);
     const sessionId = getOrCreateSessionId();
 
+    if (cartIconRef.current && event.currentTarget) {
+      const buttonRect = event.currentTarget.getBoundingClientRect();
+      const cartRect = cartIconRef.current.getBoundingClientRect();
+      
+      const newItem: FlyingItem = {
+        id: `${productId}-${Date.now()}`,
+        startX: buttonRect.left + buttonRect.width / 2 - 20,
+        startY: buttonRect.top + buttonRect.height / 2 - 20,
+        endX: cartRect.left + cartRect.width / 2 - 20,
+        endY: cartRect.top + cartRect.height / 2 - 20,
+        image: imageUrl || '/placeholder.png'
+      };
+      
+      setFlyingItems((prev) => [...prev, newItem]);
+    }
+
     try {
-      // 1. Cek isi keranjang lokal perangkat saat ini
       const { data: existingItem } = await supabase
         .from('carts')
         .select('*')
@@ -132,13 +240,11 @@ export default function HomePage() {
         .maybeSingle();
 
       if (existingItem) {
-        // 2. Jika produk sudah ada, tambahkan quantity (+1)
         await supabase
           .from('carts')
           .update({ quantity: existingItem.quantity + 1 })
           .eq('id', existingItem.id);
       } else {
-        // 3. Jika belum ada, buat entri baris baru
         await supabase
           .from('carts')
           .insert({
@@ -148,7 +254,7 @@ export default function HomePage() {
           });
       }
 
-      // Trigger feedback visual sukses muat barang
+      await refreshCartCount();
       setSuccessId(productId);
       setTimeout(() => setSuccessId(null), 2000);
     } catch (error) {
@@ -158,7 +264,12 @@ export default function HomePage() {
     }
   }
 
+  const handleAnimationComplete = (id: string) => {
+    setFlyingItems((prev) => prev.filter((item) => item.id !== id));
+  };
+
   useEffect(() => {
+    setIsMounted(true);
     initAppData();
 
     const timer = setTimeout(() => {
@@ -177,12 +288,31 @@ export default function HomePage() {
     return matchesSearch && matchesCategory;
   });
 
+  if (!isMounted) {
+    return null;
+  }
+
   return (
-    <div className="bg-[#f8f9fa] min-h-screen text-gray-800 antialiased font-sans relative">
+    <div className="bg-[#f8f9fa] min-h-screen text-gray-800 antialiased font-sans relative select-none">
       
-      {/* ========================================================= */}
-      {/* 1. SPLASHSCREEN RINGAN (EFFICIENT & FAST) */}
-      {/* ========================================================= */}
+      {/* LAYER ANIMASI ITEM FLYING TO CART */}
+      <div className="fixed inset-0 pointer-events-none z-[9999] overflow-hidden">
+        {flyingItems.map((item) => (
+          <motion.div
+            key={item.id}
+            initial={{ left: item.startX, top: item.startY, scale: 1, opacity: 1 }}
+            animate={{ left: item.endX, top: item.endY, scale: 0.2, opacity: 0.6 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.75, ease: [0.25, 1, 0.5, 1] }}
+            onAnimationComplete={() => handleAnimationComplete(item.id)}
+            className="fixed w-10 h-10 rounded-xl bg-white border border-orange-200 shadow-md p-1 flex items-center justify-center overflow-hidden"
+          >
+            <img src={item.image} alt="flying product" className="max-w-full max-h-full object-contain" />
+          </motion.div>
+        ))}
+      </div>
+
+      {/* 1. SPLASHSCREEN */}
       <AnimatePresence>
         {showSplash && (
           <motion.div 
@@ -208,9 +338,7 @@ export default function HomePage() {
         )}
       </AnimatePresence>
 
-      {/* ========================================================= */}
-      {/* 2. ALERT POP-UP NATURAL (CLEAN & NATIVE STYLE) */}
-      {/* ========================================================= */}
+      {/* 2. ALERT POP-UP */}
       <AnimatePresence>
         {showAlert && bestSellerProduct && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -257,7 +385,7 @@ export default function HomePage() {
                   
                   <div className="flex items-center justify-center gap-2 mb-4">
                     <span className="text-xs text-gray-400 line-through">
-                      Rp {Math.floor(bestSellerProduct.harga / 0.85).toLocaleString('id-ID')}
+                      Rp {Math.floor(bestSellerProduct.harga / (1 - 0.15)).toLocaleString('id-ID')}
                     </span>
                     <span className="text-sm font-bold text-gray-950">
                       Rp {Number(bestSellerProduct.harga).toLocaleString('id-ID')}
@@ -265,11 +393,10 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                {/* Button Tambah Keranjang Langsung dari Alert */}
                 <button 
                   disabled={cartLoadingId === bestSellerProduct.id}
-                  onClick={() => handleAddToCart(bestSellerProduct.id)}
-                  className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-emerald-600 text-white text-xs font-semibold py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-colors shadow-xs"
+                  onClick={(e) => handleAddToCart(bestSellerProduct.id, bestSellerProduct.gambar1, e)}
+                  className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-emerald-600 text-white text-xs font-semibold py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-xs"
                 >
                   {successId === bestSellerProduct.id ? (
                     <>
@@ -278,7 +405,7 @@ export default function HomePage() {
                     </>
                   ) : (
                     <>
-                      <ShoppingBag className="w-3.5 h-3.5" />
+                      <FaCartShopping className="w-3.5 h-3.5" />
                       <span>{cartLoadingId === bestSellerProduct.id ? 'Memproses...' : 'Tambah ke Keranjang'}</span>
                     </>
                   )}
@@ -298,9 +425,7 @@ export default function HomePage() {
         )}
       </AnimatePresence>
 
-      {/* ========================================================= */}
       {/* NAVBAR */}
-      {/* ========================================================= */}
       <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
           <Link href="/" className="flex items-center gap-1 active:scale-95 transition-transform flex-shrink-0">
@@ -320,12 +445,25 @@ export default function HomePage() {
             <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
           </div>
 
-          {/* Tombol Menuju Halaman Keranjang Tanpa Login */}
           <Link 
+            ref={cartIconRef}
             href="/cart" 
-            className="p-2 bg-gray-50 border border-gray-200 hover:border-orange-500 rounded-xl relative text-gray-700 hover:text-orange-500 transition-all flex items-center justify-center"
+            className="p-2.5 bg-gray-50 border border-gray-200 hover:border-orange-500 rounded-xl relative text-gray-700 hover:text-orange-500 transition-all flex items-center justify-center"
           >
-            <ShoppingBag className="w-5 h-5" />
+            <FaCartShopping className="w-4 h-4" />
+            <AnimatePresence>
+              {cartCount > 0 && (
+                <motion.span 
+                  key={cartCount}
+                  initial={{ scale: 0.4, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.4, opacity: 0 }}
+                  className="absolute -top-1.5 -right-1.5 bg-orange-500 text-white font-black text-[10px] w-5 h-5 rounded-full flex items-center justify-center border-2 border-white shadow-xs"
+                >
+                  {cartCount}
+                </motion.span>
+              )}
+            </AnimatePresence>
           </Link>
         </div>
       </nav>
@@ -333,7 +471,7 @@ export default function HomePage() {
       {/* BANNER */}
       <PromoBanner />
 
-      {/* KATEGORI */}
+      {/* SECTION KATEGORI (Optimasi Desktop Grid & Mobile Scrollable) */}
       <section className="max-w-7xl mx-auto px-4 py-6 bg-white border-y border-gray-100">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-sm font-bold text-gray-900 tracking-tight uppercase">Kategori Terpopuler</h2>
@@ -342,26 +480,29 @@ export default function HomePage() {
               onClick={() => setSelectedCategory(null)}
               className="text-xs text-red-500 hover:text-red-600 flex items-center gap-1 font-semibold"
             >
-              <X className="w-3 h-3" /> Hapus
+              <X className="w-3 h-3" /> Hapus Filter
             </button>
           )}
         </div>
         
-        <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-none">
+        {/* Container Responsif */}
+        <div className="flex gap-4 overflow-x-auto pb-2 md:pb-0 scrollbar-none snap-x md:flex-wrap md:justify-start md:overflow-x-visible">
           {categories.map((cat, idx) => {
             const isActive = selectedCategory === cat.keyword;
             return (
               <div 
                 key={idx} 
                 onClick={() => setSelectedCategory(isActive ? null : cat.keyword)}
-                className="flex flex-col items-center space-y-1.5 min-w-[75px] cursor-pointer group flex-shrink-0"
+                className="flex flex-col items-center space-y-1.5 min-w-[76px] sm:min-w-[84px] md:w-[90px] cursor-pointer group flex-shrink-0 snap-contained transition-transform active:scale-95"
               >
-                <div className={`w-12 h-12 border rounded-full flex items-center justify-center text-xl transition-all ${
-                  isActive ? 'border-orange-500 bg-orange-50' : 'bg-gray-50 border-gray-100'
+                <div className={`w-12 h-12 border rounded-2xl flex items-center justify-center transition-all duration-200 ${
+                  isActive 
+                    ? 'border-orange-500 bg-orange-50 text-orange-500 shadow-xs' 
+                    : 'bg-gray-50 border-gray-100 text-gray-600 group-hover:text-orange-500 group-hover:bg-orange-50/50 group-hover:border-orange-200'
                 }`}>
                   {cat.icon}
                 </div>
-                <span className={`text-[11px] font-medium text-center line-clamp-1 ${isActive ? 'text-orange-600 font-bold' : 'text-gray-600'}`}>
+                <span className={`text-[10.5px] font-medium text-center line-clamp-2 px-0.5 tracking-tight max-w-[76px] leading-tight ${isActive ? 'text-orange-600 font-bold' : 'text-gray-600 group-hover:text-orange-500'}`}>
                   {cat.name}
                 </span>
               </div>
@@ -400,7 +541,7 @@ export default function HomePage() {
             className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"
           >
             {filteredProducts.map((product) => {
-              const hargaSebelumDiskon = Math.floor(product.harga / 0.85);
+              const hargaSebelumDiskon = Math.floor(product.harga / (1 - 0.15));
               const isCartLoading = cartLoadingId === product.id;
               const isSuccess = successId === product.id;
 
@@ -410,10 +551,9 @@ export default function HomePage() {
                   variants={itemVariants as any}
                   className="bg-white rounded-2xl border border-gray-200 p-3 shadow-xs hover:border-orange-300 transition-all flex flex-col justify-between group relative"
                 >
-                  {/* Bagian Atas Card: Link ke Detail */}
                   <Link href={`/product/${product.id}`} className="block flex-1">
                     <div className="aspect-square w-full bg-gray-50 rounded-xl overflow-hidden relative p-3 flex items-center justify-center">
-                      <span className="absolute top-2 left-2 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5">
+                      <span className="absolute top-2 left-2 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5 z-10">
                         <Percent className="w-2.5 h-2.5" /> 15% OFF
                       </span>
 
@@ -439,12 +579,11 @@ export default function HomePage() {
                     </div>
                   </Link>
 
-                  {/* Tombol Tambahkan Ke Keranjang Terintegrasi Per Card */}
                   {product.stock > 0 && (
                     <div className="mt-auto pt-1">
                       <button 
-                        disabled={isCartLoading || isSuccess}
-                        onClick={() => handleAddToCart(product.id)}
+                        disabled={isCartLoading}
+                        onClick={(e) => handleAddToCart(product.id, product.gambar1, e)}
                         className={`w-full text-[11px] font-bold py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all duration-200 ${
                           isSuccess 
                             ? 'bg-emerald-600 text-white' 
@@ -458,7 +597,7 @@ export default function HomePage() {
                           </>
                         ) : (
                           <>
-                            <ShoppingBag className="w-3 h-3" />
+                            <FaCartShopping className="w-3 h-3" />
                             <span>{isCartLoading ? 'Memuat...' : 'Keranjang'}</span>
                           </>
                         )}
