@@ -27,7 +27,7 @@ export default function CheckoutPage() {
   // State untuk memastikan komponen sudah terpasang aman di client
   const [isMounted, setIsMounted] = useState(false);
 
-  // SEKARANG: Menggunakan Array untuk menampung banyak produk sekaligus
+  // Menggunakan Array untuk menampung banyak produk sekaligus
   const [cartItems, setCartItems] = useState<CheckoutItem[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [showInvoice, setShowInvoice] = useState(false);
@@ -199,33 +199,34 @@ export default function CheckoutPage() {
     }
 
     setSubmitting(true);
+    // Membuat base Order ID unik (Contoh: SH-678910)
     const customInvoiceId = `SH-${Date.now().toString().slice(-6)}`;
 
     try {
-      // 1. Memasukkan seluruh item belanjaan ke tabel orders menggunakan Promise.all (Multi-Items)
-      const insertPromises = cartItems.map(item => 
-        supabase.from('orders').insert([
-          {
-            nama: formData.nama,
-            email: formData.email || null,
-            whatsapp: formData.whatsapp,
-            alamat: gabunganAlamat,
-            produk_id: item.product_id, 
-            qty: item.qty,
-            total: item.harga * item.qty, // total per item produk
-            status: 'pending'
-          }
-        ])
-      );
+      // 1. Memetakan semua item keranjang ke format array untuk Batch Insert aman
+      const ordersToInsert = cartItems.map((item, index) => ({
+        // Hasil format id teks baru di DB: SH-678910-1, SH-678910-2, dst.
+        id: `${customInvoiceId}-${index + 1}`,
+        nama: formData.nama,
+        email: formData.email || null,
+        whatsapp: formData.whatsapp,
+        alamat: gabunganAlamat,
+        produk_id: item.product_id, 
+        qty: item.qty,
+        total: item.harga * item.qty, 
+        status: 'pending'
+      }));
 
-      const insertResults = await Promise.all(insertPromises);
-      const hasInsertError = insertResults.find(res => res.error);
+      // 2. Kirim data sekaligus dalam satu request ke tabel orders Supabase
+      const { error: insertError } = await supabase
+        .from('orders')
+        .insert(ordersToInsert);
 
-      if (hasInsertError) {
-        throw new Error(hasInsertError.error?.message || 'Gagal menyimpan salah satu item pesanan.');
+      if (insertError) {
+        throw new Error(insertError.message);
       }
 
-      // 2. Mengurangi stok masing-masing produk yang dibeli di Supabase RPC
+      // 3. Mengurangi stok masing-masing produk yang dibeli di Supabase RPC
       const stockPromises = cartItems.map(item =>
         supabase.rpc('decrement_stock', { 
           row_id: item.product_id, 
@@ -235,6 +236,7 @@ export default function CheckoutPage() {
 
       await Promise.all(stockPromises);
 
+      // Simpan invoice dasar (tanpa nomor urut belakang) untuk tampilan struk klien
       setOrderId(customInvoiceId);
       setSubmitting(false);
       setShowInvoice(true); 
@@ -272,7 +274,7 @@ export default function CheckoutPage() {
             <title>Cetak Invoice - ${orderId}</title>
             <style>
               body { font-family: monospace; padding: 20px; color: #222; font-size: 12px; }
-              .text-center { text-align: center; }
+              text-center { text-align: center; }
               .border-b { border-bottom: 1px dashed #444; }
               .py-2 { padding-top: 8px; padding-bottom: 8px; }
               .pb-3 { padding-bottom: 12px; }
@@ -452,7 +454,7 @@ export default function CheckoutPage() {
           </form>
         </div>
 
-        {/* PANEL SISI KANAN: Perbaikan Menggunakan Map Looping untuk Banyak Produk */}
+        {/* PANEL SISI KANAN: Ringkasan Pembelian */}
         <div className="lg:col-span-5 space-y-4">
           <div className="bg-white p-4 md:p-5 rounded border border-gray-200 shadow-sm">
             <h2 className="text-xs font-black text-gray-900 uppercase tracking-wider border-b pb-2 mb-4 flex items-center gap-1.5">
@@ -515,7 +517,7 @@ export default function CheckoutPage() {
               </button>
             </div>
 
-            {/* AREA NOTA INVOICE YANG DICETAK (Disesuaikan Perulangan Multi-Item) */}
+            {/* AREA NOTA INVOICE YANG DICETAK */}
             <div ref={strukRef} className="p-6 bg-white font-mono text-xs text-[#222222] space-y-4">
               <div className="text-center border-b border-dashed border-gray-400 pb-3">
                 <h2 className="text-sm font-bold tracking-widest">SAFEHOME STORE</h2>

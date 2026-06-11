@@ -7,8 +7,9 @@ import Link from 'next/link';
 import { CheckCircle, AlertTriangle, ArrowLeft, ShoppingBag, ShieldCheck, Heart, Share2, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+// PENYESUAIAN: ID disesuaikan agar fleksibel (string | number) mengikuti skema database terbaru Anda
 interface Product {
-  id: number;
+  id: string | number;
   nama: string;
   harga: number;
   stock: number;
@@ -35,8 +36,6 @@ export default function ProductDetailPage() {
   
   const [activeMedia, setActiveMedia] = useState<MediaItem>({ type: 'image', url: '/placeholder.png' });
   const [mediaList, setMediaList] = useState<MediaItem[]>([]);
-  
-  // State untuk feedback share / copy link
   const [shareToast, setShareToast] = useState<string | null>(null);
 
   useEffect(() => {
@@ -69,6 +68,7 @@ export default function ProductDetailPage() {
           setActiveMedia({ type: 'image', url: '/placeholder.png' });
         }
 
+        // Mengambil rekomendasi produk lain mengecualikan ID produk yang sedang aktif
         const { data: others, error: othersError } = await supabase
           .from('products')
           .select('*')
@@ -124,7 +124,6 @@ export default function ProductDetailPage() {
     router.push('/checkout');
   };
 
-  // FUNGSI UTAMA: Fitur Bagikan Produk Aktif
   const handleShareProduct = async () => {
     const shareData = {
       title: product.nama,
@@ -132,7 +131,6 @@ export default function ProductDetailPage() {
       url: window.location.href,
     };
 
-    // Deteksi jika browser mendukung Web Share API asli (biasanya browser mobile & Safari)
     if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
       try {
         await navigator.share(shareData);
@@ -140,7 +138,6 @@ export default function ProductDetailPage() {
         console.error('User membatalkan atau terjadi error saat share:', error);
       }
     } else {
-      // Fallback: Salin URL tautan secara otomatis ke clipboard jika Web Share API tidak didukung
       try {
         await navigator.clipboard.writeText(window.location.href);
         setShareToast('Tautan produk berhasil disalin ke clipboard!');

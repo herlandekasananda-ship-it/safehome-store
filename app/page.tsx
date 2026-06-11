@@ -18,8 +18,12 @@ import {
   ArrowRight, 
   Check, 
   Cctv,
-  Smartphone, // Untuk Aksesoris HP
-  Sparkles     // Untuk Perangkap / Alternatif lain
+  Smartphone, 
+  Sparkles,
+  ChevronDown,
+  Lock,
+  UserCheck,
+  ServerCrash
 } from 'lucide-react';
 
 // AMBIL SEMUA IKON KATEGORI & KART DARI REACT ICONS
@@ -43,7 +47,7 @@ import {
   FaKitMedical, 
   FaWifi,
   FaCartShopping,
-  FaMotorcycle // Untuk Aksesoris Motor
+  FaMotorcycle 
 } from 'react-icons/fa6';
 import { MdOutlineSensors } from 'react-icons/md';
 
@@ -136,6 +140,9 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   
+  // STATE UNTUK BATASAN JUMLAH PRODUK YANG TAMPIL
+  const [visibleCount, setVisibleCount] = useState(8);
+
   const [cartCount, setCartCount] = useState<number>(0);
   const [cartLoadingId, setCartLoadingId] = useState<number | null>(null);
   const [successId, setSuccessId] = useState<number | null>(null);
@@ -147,7 +154,6 @@ export default function HomePage() {
   const [flyingItems, setFlyingItems] = useState<FlyingItem[]>([]);
   const cartIconRef = useRef<HTMLAnchorElement>(null);
 
-  // DAFTAR KATEGORI (Ditambah Aksesoris Motor, Aksesoris HP, dan Perangkap)
   const categories = [
     { name: 'Kunci', keyword: 'kunci', icon: <FaKey className="w-5 h-5" /> },
     { name: 'CCTV', keyword: 'cctv', icon: <Cctv className="w-5 h-5" /> },
@@ -287,6 +293,8 @@ export default function HomePage() {
       : true;
     return matchesSearch && matchesCategory;
   });
+
+  const displayedProducts = filteredProducts.slice(0, visibleCount);
 
   if (!isMounted) {
     return null;
@@ -439,7 +447,10 @@ export default function HomePage() {
               type="text"
               placeholder="Cari produk keamanan rumah..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setVisibleCount(8);
+              }}
               className="w-full bg-gray-50 border border-gray-300 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-orange-500 focus:bg-white transition-all text-black"
             />
             <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -471,13 +482,16 @@ export default function HomePage() {
       {/* BANNER */}
       <PromoBanner />
 
-      {/* SECTION KATEGORI (Optimasi Desktop Grid & Mobile Scrollable) */}
+      {/* SECTION KATEGORI */}
       <section className="max-w-7xl mx-auto px-4 py-6 bg-white border-y border-gray-100">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-sm font-bold text-gray-900 tracking-tight uppercase">Kategori Terpopuler</h2>
           {selectedCategory && (
             <button 
-              onClick={() => setSelectedCategory(null)}
+              onClick={() => {
+                setSelectedCategory(null);
+                setVisibleCount(8);
+              }}
               className="text-xs text-red-500 hover:text-red-600 flex items-center gap-1 font-semibold"
             >
               <X className="w-3 h-3" /> Hapus Filter
@@ -485,14 +499,16 @@ export default function HomePage() {
           )}
         </div>
         
-        {/* Container Responsif */}
         <div className="flex gap-4 overflow-x-auto pb-2 md:pb-0 scrollbar-none snap-x md:flex-wrap md:justify-start md:overflow-x-visible">
           {categories.map((cat, idx) => {
             const isActive = selectedCategory === cat.keyword;
             return (
               <div 
                 key={idx} 
-                onClick={() => setSelectedCategory(isActive ? null : cat.keyword)}
+                onClick={() => {
+                  setSelectedCategory(isActive ? null : cat.keyword);
+                  setVisibleCount(8);
+                }}
                 className="flex flex-col items-center space-y-1.5 min-w-[76px] sm:min-w-[84px] md:w-[90px] cursor-pointer group flex-shrink-0 snap-contained transition-transform active:scale-95"
               >
                 <div className={`w-12 h-12 border rounded-2xl flex items-center justify-center transition-all duration-200 ${
@@ -515,7 +531,7 @@ export default function HomePage() {
       <main className="max-w-7xl mx-auto px-4 py-6">
         <div className="bg-white p-3.5 rounded-xl border border-gray-200 flex justify-between items-center mb-6 text-xs">
           <div className="text-gray-600">
-            Menampilkan <span className="font-bold text-gray-900">{filteredProducts.length}</span> item
+            Menampilkan <span className="font-bold text-gray-900">{displayedProducts.length}</span> dari <span className="font-bold text-gray-900">{filteredProducts.length}</span> item
           </div>
           <div className="flex items-center gap-1.5 font-semibold text-gray-700 border px-2.5 py-1.5 rounded-lg bg-gray-50">
             <ListFilter className="w-3.5 h-3.5 text-gray-400" />
@@ -534,85 +550,154 @@ export default function HomePage() {
             <p className="text-gray-500 text-sm">Produk tidak ditemukan</p>
           </div>
         ) : (
-          <motion.div 
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"
-          >
-            {filteredProducts.map((product) => {
-              const hargaSebelumDiskon = Math.floor(product.harga / (1 - 0.15));
-              const isCartLoading = cartLoadingId === product.id;
-              const isSuccess = successId === product.id;
+          <>
+            <motion.div 
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+              className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"
+            >
+              {displayedProducts.map((product) => {
+                const hargaSebelumDiskon = Math.floor(product.harga / (1 - 0.15));
+                const isCartLoading = cartLoadingId === product.id;
+                const isSuccess = successId === product.id;
 
-              return (
-                <motion.div 
-                  key={product.id} 
-                  variants={itemVariants as any}
-                  className="bg-white rounded-2xl border border-gray-200 p-3 shadow-xs hover:border-orange-300 transition-all flex flex-col justify-between group relative"
-                >
-                  <Link href={`/product/${product.id}`} className="block flex-1">
-                    <div className="aspect-square w-full bg-gray-50 rounded-xl overflow-hidden relative p-3 flex items-center justify-center">
-                      <span className="absolute top-2 left-2 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5 z-10">
-                        <Percent className="w-2.5 h-2.5" /> 15% OFF
-                      </span>
+                return (
+                  <motion.div 
+                    key={product.id} 
+                    variants={itemVariants as any}
+                    className="bg-white rounded-2xl border border-gray-200 p-3 shadow-xs hover:border-orange-300 transition-all flex flex-col justify-between group relative"
+                  >
+                    <Link href={`/product/${product.id}`} className="block flex-1">
+                      <div className="aspect-square w-full bg-gray-50 rounded-xl overflow-hidden relative p-3 flex items-center justify-center">
+                        <span className="absolute top-2 left-2 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5 z-10">
+                          <Percent className="w-2.5 h-2.5" /> 15% OFF
+                        </span>
 
-                      <img 
-                        src={product.gambar1 || '/placeholder.png'} 
-                        alt={product.nama} 
-                        className="max-w-full max-h-full object-contain mix-blend-multiply" 
-                      />
-                    </div>
-
-                    <div className="pt-2">
-                      <h3 className="text-xs font-semibold text-gray-800 line-clamp-2 min-h-[32px] leading-snug group-hover:text-orange-500 transition-colors">
-                        {product.nama}
-                      </h3>
-                      <div className="mt-1.5 mb-2">
-                        <p className="text-sm font-bold text-gray-950">
-                          Rp {Number(product.harga).toLocaleString('id-ID')}
-                        </p>
-                        <p className="text-[10px] text-gray-400 line-through">
-                          Rp {hargaSebelumDiskon.toLocaleString('id-ID')}
-                        </p>
+                        <img 
+                          src={product.gambar1 || '/placeholder.png'} 
+                          alt={product.nama} 
+                          className="max-w-full max-h-full object-contain mix-blend-multiply" 
+                        />
                       </div>
-                    </div>
-                  </Link>
 
-                  {product.stock > 0 && (
-                    <div className="mt-auto pt-1">
-                      <button 
-                        disabled={isCartLoading}
-                        onClick={(e) => handleAddToCart(product.id, product.gambar1, e)}
-                        className={`w-full text-[11px] font-bold py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all duration-200 ${
-                          isSuccess 
-                            ? 'bg-emerald-600 text-white' 
-                            : 'bg-gray-900 hover:bg-orange-500 text-white'
-                        }`}
-                      >
-                        {isSuccess ? (
-                          <>
-                            <Check className="w-3.5 h-3.5 stroke-[3]" />
-                            <span>Tersimpan</span>
-                          </>
-                        ) : (
-                          <>
-                            <FaCartShopping className="w-3 h-3" />
-                            <span>{isCartLoading ? 'Memuat...' : 'Keranjang'}</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  )}
-                </motion.div>
-              );
-            })}
-          </motion.div>
+                      <div className="pt-2">
+                        <h3 className="text-xs font-semibold text-gray-800 line-clamp-2 min-h-[32px] leading-snug group-hover:text-orange-500 transition-colors">
+                          {product.nama}
+                        </h3>
+                        <div className="mt-1.5 mb-2">
+                          <p className="text-sm font-bold text-gray-950">
+                            Rp {Number(product.harga).toLocaleString('id-ID')}
+                          </p>
+                          <p className="text-[10px] text-gray-400 line-through">
+                            Rp {hargaSebelumDiskon.toLocaleString('id-ID')}
+                          </p>
+                        </div>
+                      </div>
+                    </Link>
+
+                    {product.stock > 0 && (
+                      <div className="mt-auto pt-1">
+                        <button 
+                          disabled={isCartLoading}
+                          onClick={(e) => handleAddToCart(product.id, product.gambar1, e)}
+                          className={`w-full text-[11px] font-bold py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all duration-200 ${
+                            isSuccess 
+                              ? 'bg-emerald-600 text-white' 
+                              : 'bg-gray-900 hover:bg-orange-500 text-white'
+                          }`}
+                        >
+                          {isSuccess ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 stroke-[3]" />
+                              <span>Tersimpan</span>
+                            </>
+                          ) : (
+                            <>
+                              <FaCartShopping className="w-3 h-3" />
+                              <span>{isCartLoading ? 'Memuat...' : 'Keranjang'}</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </motion.div>
+                );
+              })}
+            </motion.div>
+
+            {/* BUTTON SELENGKAPNYA */}
+            {filteredProducts.length > visibleCount && (
+              <div className="flex justify-center mt-8">
+                <button
+                  onClick={() => setVisibleCount((prev) => prev + 8)}
+                  className="bg-white border border-gray-300 hover:border-orange-500 hover:text-orange-500 text-gray-700 text-xs font-bold px-6 py-2.5 rounded-xl flex items-center gap-1.5 shadow-xs transition-all active:scale-95"
+                >
+                  <span>Lihat Selengkapnya</span>
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </>
         )}
       </main>
 
+      {/* --- SECTION COPYWRITING KEAMANAN DATA --- */}
+      <section className="max-w-7xl mx-auto px-4 pt-12 pb-6">
+        <div className="bg-gradient-to-br from-gray-900 to-gray-950 text-white rounded-3xl p-6 sm:p-10 shadow-lg border border-gray-800 relative overflow-hidden">
+          {/* Aksen Background */}
+          <div className="absolute -right-10 -bottom-10 text-gray-800/20 pointer-events-none">
+            <ShieldCheck className="w-64 h-64" />
+          </div>
+
+          <div className="max-w-2xl relative z-10">
+            <span className="text-[10px] font-black tracking-widest text-orange-400 bg-orange-500/10 border border-orange-500/20 px-2.5 py-1 rounded-md uppercase">
+              100% Privacy & Security Guaranteed
+            </span>
+            <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight mt-3 mb-4 leading-tight">
+              Belanja Perangkat Keamanan Rumah Jadi Lebih Tenang di SafeHome Store
+            </h2>
+            <p className="text-gray-400 text-xs sm:text-sm leading-relaxed mb-6">
+              Lebih dari sekadar toko, kami adalah partner andalan Anda dalam membangun ekosistem rumah yang cerdas dan terproteksi. Kami memahami bahwa produk keamanan melibatkan privasi tingkat tinggi, itulah mengapa integrasi sistem kami dirancang tanpa celah.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-gray-800 pt-6">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-xl bg-orange-500/10 text-orange-400 shrink-0">
+                  <Lock className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-gray-100">Enkripsi End-to-End</h4>
+                  <p className="text-[11px] text-gray-500 mt-0.5">Semua data transaksi dan kredensial akun Anda dienkripsi ketat tanpa log pihak ketiga.</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-xl bg-orange-500/10 text-orange-400 shrink-0">
+                  <UserCheck className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-gray-100">Produk Resmi & Teruji</h4>
+                  <p className="text-[11px] text-gray-500 mt-0.5">Kami hanya mendistribusikan perangkat original dengan jaminan pembaruan firmware berkala.</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-xl bg-orange-500/10 text-orange-400 shrink-0">
+                  <ServerCrash className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-gray-100">Proteksi Server Cloud</h4>
+                  <p className="text-[11px] text-gray-500 mt-0.5">Sinkronisasi data dilakukan secara privat melalui cloud aman berbasis industri global.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* FOOTER INFO */}
-      <footer className="bg-white border-t border-gray-200 py-6 text-center text-[11px] text-gray-400 mt-12">
+      <footer className="bg-white border-t border-gray-200 py-6 text-center text-[11px] text-gray-400 mt-6">
         <p>© 2026 SafeHome Store. Clean & Optimized Interface.</p>
       </footer>
     </div>

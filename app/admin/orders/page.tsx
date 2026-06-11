@@ -5,144 +5,182 @@ import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import { Edit2, Trash2, X, RefreshCw, PhoneCall } from 'lucide-react';
 
-interface OrderItem {
-  id: number;
+// Struktur item produk di dalam pesanan gabungan
+interface OrderProductItem {
+  produk_id: string | number;
+  nama_produk: string;
+  qty: number;
+}
+
+// Struktur utama data setelah dikelompokkan (Grouped)
+interface GroupedOrder {
+  id: string; 
   created_at: string;
   nama: string;
   email: string | null;
   whatsapp: string;
   alamat: string;
-  produk_id: number;
-  qty: number;
   total: number;
   status: 'pending' | 'processing' | 'completed' | 'cancelled';
-  products?: {
-    nama: string;
-  };
+  items: OrderProductItem[];
+  rawOrders: any[]; // Menyimpan data asli database untuk kebutuhan update massal
 }
 
 export default function AdminOrdersPage() {
-  const [orders, setOrders] = useState<OrderItem[]>([]);
+  const [orders, setOrders] = useState<GroupedOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
 
   // State untuk modal/form Edit
-  const [editingOrder, setEditingOrder] = useState<OrderItem | null>(null);
+  const [editingOrder, setEditingOrder] = useState<GroupedOrder | null>(null);
   const [editForm, setEditForm] = useState({ nama: '', whatsapp: '', alamat: '' });
 
   const fetchOrders = async () => {
     setLoading(true);
-    const { data: ordersData, error: ordersError } = await supabase
-      .from('orders')
-      .select('*')
-      .order('id', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          products:produk_id (nama)
+        `)
+        .order('created_at', { ascending: false });
 
-    if (ordersError) {
-      alert('Gagal mengambil data pesanan: ' + ordersError.message);
-      setLoading(false);
-      return;
-    }
+      if (error) throw error;
 
-    if (ordersData && ordersData.length > 0) {
-      const productIds = Array.from(new Set(ordersData.map(o => o.produk_id).filter(Boolean)));
-      const { data: productsData, error: productsError } = await supabase
-        .from('products')
-        .select('id, nama')
-        .in('id', productIds);
+      if (data) {
+        // 🔄 PROSES GABUNGKAN PESANAN (Grouping berdasarkan Nama + WA + Waktu yang sama)
+        const groups: { [key: string]: GroupedOrder } = {};
 
-      if (productsError) {
-        console.error('Gagal mengambil nama produk:', productsError.message);
+        data.forEach((order: any) => {
+          const productInfo = Array.isArray(order.products) ? order.products[0] : order.products;
+          const namaProduk = productInfo?.nama || `Produk ID: ${order.produk_id}`;
+
+          // Membuat Unique Key berdasarkan Nama, Nomor WhatsApp, dan Waktu Menit Order
+          const orderTime = new Date(order.created_at).toISOString().slice(0, 16); 
+          const groupKey = `${order.nama}-${order.whatsapp}-${orderTime}`;
+
+          if (!groups[groupKey]) {
+            groups[groupKey] = {
+              id: order.id, 
+              created_at: order.created_at,
+              nama: order.nama,
+              email: order.email,
+              whatsapp: order.whatsapp,
+              alamat: order.alamat,
+              total: 0, // Akan diakumulasikan
+              status: order.status,
+              items: [],
+              rawOrders: [] // Menampung baris asli database
+            };
+          }
+
+          // 1. Masukkan item produk ke dalam daftar pesanan terkait
+          groups[groupKey].items.push({
+            produk_id: order.produk_id,
+            nama_produk: namaProduk,
+            qty: order.qty
+          });
+
+          // 2. Akumulasikan total belanja agar tergabung total harganya
+          groups[groupKey].total += Number(order.total);
+
+          // 3. Simpan data asli untuk kebutuhan referensi update database kelak
+          groups[groupKey].rawOrders.push(order);
+        });
+
+        // Ubah objek hasil grouping kembali menjadi bentuk Array
+        setOrders(Object.values(groups));
       }
-
-      const combinedData = ordersData.map(order => {
-        const matchingProduct = productsData?.find(p => p.id === order.produk_id);
-        return {
-          ...order,
-          products: matchingProduct ? { nama: matchingProduct.nama } : undefined
-        };
-      });
-
-      setOrders(combinedData);
-    } else {
-      setOrders([]);
+    } catch (error: any) {
+      alert('Gagal mengambil data pesanan: ' + error.message);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
     fetchOrders();
   }, []);
 
-  // --- 1. UPDATE STATUS, MANAJEMEN PREVENTIF STOK ---
-  const handleUpdateStatus = async (orderId: number, currentStatus: string, newStatus: string, productId: number, qty: number) => {
-    if (currentStatus === newStatus) return;
+  // --- 1. UPDATE STATUS & MANAJEMEN STOK UNTUK MULTI-ITEMS ---
+  const handleUpdateStatus = async (order: GroupedOrder, newStatus: string) => {
+    if (order.status === newStatus || statusUpdatingId !== null) return;
 
-    // Aksi Pencegahan Ganda & Pengembalian Stok Otomatis
-    if (currentStatus === 'completed' && newStatus !== 'completed') {
-      const gantiStok = confirm('Pesanan ini dibatalkan/diubah dari Selesai. Apakah Anda ingin mengembalikan stok barang ke gudang otomatis?');
+    setStatusUpdatingId(order.id);
+
+    // Jika diubah DARI Completed, kembalikan stok untuk semua item di dalam pesanan ini
+    if (order.status === 'completed' && newStatus !== 'completed') {
+      const gantiStok = confirm('Pesanan ini diubah dari Selesai. Kembalikan semua stok barang ke gudang otomatis?');
       if (gantiStok) {
-        const { error: incError } = await supabase.rpc('increment_stock', {
-          row_id: productId,
-          quantity: qty
-        });
-        if (incError) console.error('Gagal mengembalikan stok:', incError.message);
+        for (const item of order.items) {
+          await supabase.rpc('increment_stock', { row_id: item.produk_id, quantity: item.qty });
+        }
       }
     }
 
-    const { error } = await supabase
-      .from('orders')
-      .update({ status: newStatus })
-      .eq('id', orderId);
+    // Eksekusi update status ke semua baris pesanan asli di database
+    let updateSuccess = true;
+    for (const raw of order.rawOrders) {
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: newStatus })
+        .eq('id', raw.id);
+      if (error) updateSuccess = false;
+    }
 
-    if (error) {
-      alert('Gagal memperbarui status: ' + error.message);
+    if (!updateSuccess) {
+      alert('Ada kendala saat memperbarui beberapa status pesanan.');
+      setStatusUpdatingId(null);
       return;
     }
 
-    // Jika status baru diselesaikan, potong stok hanya jika status sebelumnya bukan completed
-    if (newStatus === 'completed' && currentStatus !== 'completed') {
-      const { error: stockError } = await supabase.rpc('decrement_stock', {
-        row_id: productId,
-        quantity: qty
-      });
-
-      if (stockError) {
-        alert('Status diubah ke Completed, tetapi gagal memotong stok: ' + stockError.message);
+    // Jika diubah MENJADI Completed, potong stok untuk semua produk dalam pesanan ini
+    if (newStatus === 'completed' && order.status !== 'completed') {
+      let stockSuccess = true;
+      for (const item of order.items) {
+        const { error: stockError } = await supabase.rpc('decrement_stock', { row_id: item.produk_id, quantity: item.qty });
+        if (stockError) stockSuccess = false;
+      }
+      
+      if (!stockSuccess) {
+        alert('Status berhasil diselesaikan, namun beberapa stok item gagal dipotong.');
       } else {
-        alert('Status Diperbarui! Stok produk berhasil dipotong.');
+        alert('Status Diperbarui! Semua stok produk dalam pesanan ini berhasil dipotong.');
       }
     } else {
       alert(`Status berhasil diperbarui menjadi ${newStatus}.`);
     }
 
-    // Update UI lokal secara presisi
+    // Perbarui state local UI
     setOrders(prevOrders =>
-      prevOrders.map(order =>
-        order.id === orderId ? { ...order, status: newStatus as any } : order
-      )
+      prevOrders.map(o => o.id === order.id ? { ...o, status: newStatus as any } : o)
     );
+    setStatusUpdatingId(null);
   };
 
-  // --- 2. HAPUS DATA ORDERS ---
-  const handleDeleteOrder = async (orderId: number) => {
-    const yakin = confirm('Apakah Anda yakin ingin menghapus permanen data pesanan ini?');
+  // --- 2. HAPUS DATA ORDERS GABUNGAN ---
+  const handleDeleteOrder = async (order: GroupedOrder) => {
+    const yakin = confirm(`Apakah Anda yakin ingin menghapus permanen seluruh pesanan atas nama ${order.nama}? Semua produk di dalamnya akan ikut terhapus.`);
     if (!yakin) return;
 
-    const { error } = await supabase
-      .from('orders')
-      .delete()
-      .eq('id', orderId);
+    let deleteSuccess = true;
+    for (const raw of order.rawOrders) {
+      const { error } = await supabase.from('orders').delete().eq('id', raw.id);
+      if (error) deleteSuccess = false;
+    }
 
-    if (error) {
-      alert('Gagal menghapus pesanan: ' + error.message);
+    if (deleteSuccess) {
+      setOrders(prevOrders => prevOrders.filter(o => o.id !== order.id));
+      alert('Seluruh item dalam pesanan ini berhasil dihapus.');
     } else {
-      setOrders(prevOrders => prevOrders.filter(order => order.id !== orderId));
-      alert('Pesanan berhasil dihapus.');
+      alert('Gagal menghapus beberapa data pesanan.');
     }
   };
 
-  // --- 3. EDIT DATA ALAMAT/KONTAK ---
-  const startEdit = (order: OrderItem) => {
+  // --- 3. EDIT DATA ALAMAT/KONTAK GABUNGAN ---
+  const startEdit = (order: GroupedOrder) => {
     setEditingOrder(order);
     setEditForm({
       nama: order.nama,
@@ -155,25 +193,27 @@ export default function AdminOrdersPage() {
     e.preventDefault();
     if (!editingOrder) return;
 
-    const { error } = await supabase
-      .from('orders')
-      .update({
-        nama: editForm.nama,
-        whatsapp: editForm.whatsapp,
-        alamat: editForm.alamat
-      })
-      .eq('id', editingOrder.id);
+    let editSuccess = true;
+    for (const raw of editingOrder.rawOrders) {
+      const { error } = await supabase
+        .from('orders')
+        .update({
+          nama: editForm.nama,
+          whatsapp: editForm.whatsapp,
+          alamat: editForm.alamat
+        })
+        .eq('id', raw.id);
+      if (error) editSuccess = false;
+    }
 
-    if (error) {
-      alert('Gagal memperbarui data: ' + error.message);
-    } else {
+    if (editSuccess) {
       setOrders(prevOrders =>
-        prevOrders.map(order =>
-          order.id === editingOrder.id ? { ...order, ...editForm } : order
-        )
+        prevOrders.map(o => o.id === editingOrder.id ? { ...o, ...editForm } : o)
       );
       setEditingOrder(null);
       alert('Data pesanan berhasil diperbarui!');
+    } else {
+      alert('Gagal memperbarui beberapa data alamat pesanan.');
     }
   };
 
@@ -200,7 +240,7 @@ export default function AdminOrdersPage() {
             🛡️ SafeHome Admin
           </Link>
           <span className="text-xs bg-slate-800 text-slate-400 px-2.5 py-1 rounded-full border border-slate-700">
-            Order Management
+            Order Management (Grouped View)
           </span>
         </div>
         <Link href="/" className="text-sm hover:underline text-slate-300">Lihat Toko ↗</Link>
@@ -210,13 +250,14 @@ export default function AdminOrdersPage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Daftar Pesanan Masuk</h1>
-            <p className="text-sm text-gray-500">Kelola pesanan, pengiriman, dan sinkronisasi stok gudang otomatis.</p>
+            <p className="text-sm text-gray-500">Kelola pesanan gabungan multi-produk dan sinkronisasi stok gudang otomatis.</p>
           </div>
           <button 
             onClick={fetchOrders}
-            className="flex items-center gap-1.5 self-start md:self-auto bg-white border border-gray-300 hover:bg-gray-50 px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition"
+            disabled={loading}
+            className="flex items-center gap-1.5 self-start md:self-auto bg-white border border-gray-300 hover:bg-gray-50 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition"
           >
-            <RefreshCw className="w-4 h-4 text-gray-600" /> Refresh Data
+            <RefreshCw className={`w-4 h-4 text-gray-600 ${loading ? 'animate-spin' : ''}`} /> Refresh Data
           </button>
         </div>
 
@@ -235,7 +276,7 @@ export default function AdminOrdersPage() {
           ))}
         </div>
 
-        {/* Konten Utama / Tabel */}
+        {/* Tabel Data */}
         {loading ? (
           <div className="bg-white p-12 text-center rounded-2xl border border-gray-200 shadow-sm">
             <div className="animate-spin inline-block w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full mb-2"></div>
@@ -251,10 +292,10 @@ export default function AdminOrdersPage() {
               <table className="w-full text-left border-collapse text-sm">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200 text-gray-700 font-semibold">
-                    <th className="p-4 w-16">ID</th>
+                    <th className="p-4 w-28">ID Tampilan</th>
                     <th className="p-4">Pelanggan</th>
-                    <th className="p-4">Produk / Qty</th>
-                    <th className="p-4">Total Tagihan</th>
+                    <th className="p-4">Daftar Produk / Qty</th>
+                    <th className="p-4">Total Gabungan</th>
                     <th className="p-4">Alamat Pengiriman</th>
                     <th className="p-4">Status</th>
                     <th className="p-4 text-center">Aksi Manajemen</th>
@@ -263,13 +304,18 @@ export default function AdminOrdersPage() {
                 <tbody className="divide-y divide-gray-200 text-gray-600">
                   {filteredOrders.map((order) => (
                     <tr key={order.id} className="hover:bg-gray-50/70 transition">
-                      <td className="p-4 font-mono font-bold text-gray-900">
-                        #{order.id}
-                        <span className="block font-sans font-normal text-xs text-gray-400 mt-1">
+                      
+                      {/* ID Referensi */}
+                      <td className="p-4 font-mono font-bold text-gray-900 break-all">
+                        <span className="bg-slate-100 text-slate-800 px-2 py-1 rounded text-xs block text-center mb-1 border border-slate-200">
+                          {order.id}
+                        </span>
+                        <span className="block font-sans font-normal text-[11px] text-gray-400 text-center">
                           {new Date(order.created_at).toLocaleDateString('id-ID')}
                         </span>
                       </td>
 
+                      {/* Info Pelanggan */}
                       <td className="p-4">
                         <p className="font-bold text-gray-900">{order.nama}</p>
                         <p className="text-xs text-gray-500">{order.email || '-'}</p>
@@ -282,36 +328,45 @@ export default function AdminOrdersPage() {
                         </a>
                       </td>
 
-                      <td className="p-4">
-                        <p className="font-medium text-gray-800 line-clamp-1">
-                          {order.products?.nama || `Produk ID: ${order.produk_id}`}
-                        </p>
-                        <p className="text-xs text-gray-400 mt-0.5">Jumlah: {order.qty}x</p>
+                      {/* PRODUK YANG DIJADIKAN SATU BARIS */}
+                      <td className="p-4 min-w-[220px]">
+                        <div className="space-y-1.5">
+                          {order.items.map((item, index) => (
+                            <div key={index} className="bg-orange-50/60 border border-orange-100 rounded-lg p-2 text-xs">
+                              <p className="font-semibold text-gray-800 line-clamp-1">{item.nama_produk}</p>
+                              <p className="text-gray-500 font-medium mt-0.5">Jumlah: <span className="text-orange-600 font-bold">{item.qty}x</span></p>
+                            </div>
+                          ))}
+                        </div>
                       </td>
 
-                      <td className="p-4 font-bold text-orange-600">
-                        Rp {Number(order.total).toLocaleString('id-ID')}
+                      {/* Total Gabungan Belanja */}
+                      <td className="p-4 font-extrabold text-orange-600 text-base">
+                        Rp {order.total.toLocaleString('id-ID')}
                       </td>
 
-                      {/* --- KOLOM ALAMAT FULL --- */}
-                      <td className="p-4 min-w-[220px] max-w-sm">
-                        <p className="text-xs text-gray-700 whitespace-pre-line leading-relaxed breaking-words">
+                      {/* Alamat */}
+                      <td className="p-4 min-w-[200px] max-w-xs">
+                        <p className="text-xs text-gray-700 whitespace-pre-line leading-relaxed break-all">
                           {order.alamat}
                         </p>
                       </td>
 
+                      {/* Status */}
                       <td className="p-4">
                         <span className={`px-2.5 py-1 text-xs font-semibold rounded-full border ${getStatusBadge(order.status)}`}>
                           {order.status}
                         </span>
                       </td>
 
+                      {/* Aksi */}
                       <td className="p-4">
                         <div className="flex items-center justify-center gap-2">
                           <select
                             value={order.status}
-                            onChange={(e) => handleUpdateStatus(order.id, order.status, e.target.value, order.produk_id, order.qty)}
-                            className="bg-white border text-xs font-medium rounded-lg p-1.5 focus:ring-2 focus:ring-orange-500 outline-none shadow-sm cursor-pointer"
+                            disabled={statusUpdatingId === order.id}
+                            onChange={(e) => handleUpdateStatus(order, e.target.value)}
+                            className="bg-white border text-xs font-medium rounded-lg p-1.5 focus:ring-2 focus:ring-orange-500 outline-none shadow-sm cursor-pointer disabled:opacity-50"
                           >
                             <option value="pending">⏳ Pending</option>
                             <option value="processing">📦 Processing</option>
@@ -321,15 +376,17 @@ export default function AdminOrdersPage() {
 
                           <button
                             onClick={() => startEdit(order)}
-                            className="p-1.5 border border-gray-300 rounded-lg hover:bg-gray-100 transition text-gray-600"
+                            disabled={statusUpdatingId === order.id}
+                            className="p-1.5 border border-gray-300 rounded-lg hover:bg-gray-100 transition text-gray-600 disabled:opacity-50"
                             title="Edit Data Pelanggan"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
 
                           <button
-                            onClick={() => handleDeleteOrder(order.id)}
-                            className="p-1.5 border border-red-200 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition"
+                            onClick={() => handleDeleteOrder(order)}
+                            disabled={statusUpdatingId === order.id}
+                            className="p-1.5 border border-red-200 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition disabled:opacity-50"
                             title="Hapus Pesanan"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
