@@ -1,5 +1,4 @@
-
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -15,6 +14,12 @@ const geistMono = Geist_Mono({
   display: "swap",
 });
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#0f766e",
+};
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://safehome-store.com"),
 
@@ -25,7 +30,7 @@ export const metadata: Metadata = {
   },
 
   description:
-    "Belanja perlengkapan rumah dan keamanan berkualitas dengan harga terbaik. Tersedia Lampu Taman, CCTV, Smart Lock, Alarm, Perangkap Tikus, dan berbagai kebutuhan rumah tangga. Pengiriman cepat ke seluruh Indonesia.",
+    "Belanja perlengkapan rumah & keamanan: CCTV, Smart Lock, Alarm, Lampu Taman, Perangkap Tikus & lainnya. Harga terbaik, pengiriman cepat se-Indonesia.",
 
   keywords: [
     "SafeHome Store",
@@ -53,8 +58,22 @@ export const metadata: Metadata = {
   publisher: "SafeHome Store",
   applicationName: "SafeHome Store",
 
+  formatDetection: {
+    telephone: false,
+    email: false,
+    address: false,
+  },
+
   alternates: {
     canonical: "https://safehome-store.com",
+    languages: {
+      "id-ID": "https://safehome-store.com",
+      "x-default": "https://safehome-store.com",
+    },
+  },
+
+  verification: {
+    google: "OJv7g1ECOcVFV9JlN-oRxJg7PkiSC0r_cbxp3SKX3dM",
   },
 
   robots: {
@@ -75,26 +94,23 @@ export const metadata: Metadata = {
       "SafeHome Store | Toko Online Perlengkapan Rumah & Keamanan Terpercaya",
     description:
       "Temukan berbagai produk rumah tangga dan keamanan berkualitas dengan harga terbaik. Belanja mudah, aman, dan pengiriman cepat.",
-
     url: "https://safehome-store.com",
     siteName: "SafeHome Store",
     locale: "id_ID",
     type: "website",
-
     images: [
       {
         url: "/og-image.jpg",
         width: 1200,
         height: 630,
-        alt: "SafeHome Store",
+        alt: "SafeHome Store - Toko Online Perlengkapan Rumah & Keamanan",
       },
     ],
   },
 
   twitter: {
     card: "summary_large_image",
-    title:
-      "SafeHome Store | Toko Online Perlengkapan Rumah & Keamanan",
+    title: "SafeHome Store | Toko Online Perlengkapan Rumah & Keamanan",
     description:
       "Belanja perlengkapan rumah berkualitas dengan harga terbaik hanya di SafeHome Store.",
     images: ["/og-image.jpg"],
@@ -102,21 +118,10 @@ export const metadata: Metadata = {
 
   icons: {
     icon: [
-      {
-        url: "/favicon.ico",
-      },
-      {
-        url: "/favicon-32x32.png",
-        sizes: "32x32",
-        type: "image/png",
-      },
-      {
-        url: "/favicon-16x16.png",
-        sizes: "16x16",
-        type: "image/png",
-      },
+      { url: "/favicon.ico" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
     ],
-
     apple: "/apple-touch-icon.png",
     shortcut: "/favicon.ico",
   },
@@ -138,25 +143,35 @@ const jsonLd = {
       "@id": "https://safehome-store.com/#organization",
       name: "SafeHome Store",
       url: "https://safehome-store.com",
-      logo: "https://safehome-store.com/favicon.ico",
+      logo: {
+        "@type": "ImageObject",
+        url: "https://safehome-store.com/logo.png",
+        width: 512,
+        height: 512,
+      },
+      image: "https://safehome-store.com/og-image.jpg",
       description:
-        "Toko online perlengkapan rumah dan keamanan terpercaya di Indonesia.",
+        "Toko online perlengkapan rumah dan keamanan terpercaya di Indonesia, menyediakan CCTV, smart lock, alarm, dan peralatan rumah tangga berkualitas.",
     },
     {
       "@type": "WebSite",
       "@id": "https://safehome-store.com/#website",
       url: "https://safehome-store.com",
       name: "SafeHome Store",
+      description:
+        "Toko online perlengkapan rumah & keamanan terpercaya di Indonesia.",
+      inLanguage: "id-ID",
       publisher: {
-        "@id":
-          "https://safehome-store.com/#organization",
+        "@id": "https://safehome-store.com/#organization",
       },
       potentialAction: {
         "@type": "SearchAction",
-        target:
-          "https://safehome-store.com/search?q={search_term_string}",
-        "query-input":
-          "required name=search_term_string",
+        target: {
+          "@type": "EntryPoint",
+          urlTemplate:
+            "https://safehome-store.com/search?q={search_term_string}",
+        },
+        "query-input": "required name=search_term_string",
       },
     },
   ],
@@ -172,36 +187,13 @@ export default function RootLayout({
       lang="id"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased scroll-smooth`}
     >
-      <head>
-        <meta
-          name="google-site-verification"
-          content="OJv7g1ECOcVFV9JlN-oRxJg7PkiSC0r_cbxp3SKX3dM"
-        />
-
-        <meta
-          name="viewport"
-          content="width=device-width, initial-scale=1"
-        />
-
-        <meta
-          name="theme-color"
-          content="#0f766e"
-        />
-
-        <meta
-          name="format-detection"
-          content="telephone=no"
-        />
-
+      <body className="min-h-screen flex flex-col bg-white text-gray-900 font-sans">
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
             __html: JSON.stringify(jsonLd),
           }}
         />
-      </head>
-
-      <body className="min-h-screen flex flex-col bg-white text-gray-900 font-sans">
         {children}
       </body>
     </html>
